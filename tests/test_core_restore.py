@@ -28,7 +28,7 @@ class CoreRestoreTests(unittest.TestCase):
                 np.testing.assert_array_equal(original, np.asarray(result.image))
 
     def test_processes_real_fixture_and_writes_preview_output(self) -> None:
-        input_path = ROOT / "tests" / "fixtures" / "test-image.jpg"
+        input_path = ROOT / "tests" / "fixtures" / "test-jpegs-x4-90.jpg"
         output_path = ROOT / "tests" / "output" / "restored-test-image.png"
 
         image = Image.open(input_path).convert("RGB")
@@ -36,9 +36,65 @@ class CoreRestoreTests(unittest.TestCase):
         save_image(result.image, output_path)
 
         self.assertTrue(output_path.exists())
-        self.assertEqual((125, 125), result.target_size)
+        self.assertEqual((32, 32), result.target_size)
         self.assertLess(result.target_size[0], result.source_size[0])
         self.assertLess(result.target_size[1], result.source_size[1])
+        self.assertEqual(4, result.scale.scale_x)
+        self.assertEqual(4, result.scale.scale_y)
+
+    def test_restores_integer_scale_png_fixtures_to_original_pixels(self) -> None:
+        original = Image.open(ROOT / "tests" / "fixtures" / "test-original.png").convert("RGBA")
+        expected = np.asarray(original)
+
+        for fixture_name, scale in (("test-x4.png", 4), ("test-x10.png", 10)):
+            with self.subTest(fixture=fixture_name):
+                image = Image.open(ROOT / "tests" / "fixtures" / fixture_name)
+                result = process_image(image, RestoreSettings(scale_mode="auto", min_scale=2, max_scale=16))
+
+                self.assertEqual((32, 32), result.target_size)
+                self.assertEqual(scale, result.scale.scale_x)
+                self.assertEqual(scale, result.scale.scale_y)
+                self.assertGreaterEqual(result.scale.confidence, 0.99)
+                np.testing.assert_array_equal(expected, np.asarray(result.image.convert("RGBA")))
+
+    def test_restores_integer_scale_jpeg_fixtures_to_original_size_with_bounded_error(self) -> None:
+        expected = np.asarray(self._original_on_white_background())
+
+        cases = (
+            ("test-jpegs-x4-60.jpg", 4),
+            ("test-jpegs-x4-90.jpg", 4),
+            ("test-jpegs-x10-60.jpg", 10),
+            ("test-jpegs-x10-90.jpg", 10),
+        )
+        for fixture_name, scale in cases:
+            with self.subTest(fixture=fixture_name):
+                image = Image.open(ROOT / "tests" / "fixtures" / fixture_name)
+                result = process_image(image, RestoreSettings(scale_mode="auto", min_scale=2, max_scale=16))
+                restored = np.asarray(result.image.convert("RGB"))
+
+                self.assertEqual((32, 32), result.target_size)
+                self.assertEqual(scale, result.scale.scale_x)
+                self.assertEqual(scale, result.scale.scale_y)
+                self.assertGreaterEqual(result.scale.confidence, 0.45)
+                self.assertLessEqual(self._mean_absolute_error(restored, expected), 10.0)
+
+    def test_keeps_unscaled_jpeg_fixture_at_original_size_with_low_confidence_warning(self) -> None:
+        image = Image.open(ROOT / "tests" / "fixtures" / "test-jpegs-x1-90.jpg")
+
+        result = process_image(image, RestoreSettings(scale_mode="auto", min_scale=2, max_scale=16))
+
+        self.assertEqual((32, 32), result.target_size)
+        self.assertEqual(1, result.scale.scale_x)
+        self.assertEqual(1, result.scale.scale_y)
+        self.assertEqual(0.0, result.scale.confidence)
+        self.assertTrue(result.warnings)
+
+    def test_auto_detection_allows_min_scale_one_without_division_by_zero(self) -> None:
+        image = Image.open(ROOT / "tests" / "fixtures" / "test-x4.png")
+
+        result = process_image(image, RestoreSettings(scale_mode="auto", min_scale=1, max_scale=16))
+
+        self.assertEqual((32, 32), result.target_size)
         self.assertEqual(4, result.scale.scale_x)
         self.assertEqual(4, result.scale.scale_y)
 
@@ -51,6 +107,15 @@ class CoreRestoreTests(unittest.TestCase):
         image[9:12, 1:4] = [82, 130, 116]
         image[0:2, 10:14] = [219, 181, 146]
         return image
+
+    def _original_on_white_background(self) -> Image.Image:
+        original = Image.open(ROOT / "tests" / "fixtures" / "test-original.png").convert("RGBA")
+        background = Image.new("RGBA", original.size, (255, 255, 255, 255))
+        background.alpha_composite(original)
+        return background.convert("RGB")
+
+    def _mean_absolute_error(self, actual: np.ndarray, expected: np.ndarray) -> float:
+        return float(np.mean(np.abs(actual.astype(np.int16) - expected.astype(np.int16))))
 
 
 if __name__ == "__main__":

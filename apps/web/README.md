@@ -34,7 +34,13 @@ npm install
 npm run dev
 ```
 
-The MVP currently calls `http://localhost:8000` directly.
+The MVP uses `PUBLIC_API_BASE_URL` and falls back to `http://localhost:8000`.
+
+Run the Web UI through Docker Compose from the repository root:
+
+```sh
+docker compose up --build web
+```
 
 ## Checks
 

@@ -26,6 +26,12 @@ Run the API from the repository root:
 python -m uvicorn apps.api.pixelreforge_api.main:app --reload
 ```
 
+Or run it through Docker Compose from the repository root:
+
+```sh
+docker compose up --build api
+```
+
 Available endpoints:
 
 - `GET /health`

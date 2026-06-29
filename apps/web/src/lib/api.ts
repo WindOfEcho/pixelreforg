@@ -1,6 +1,7 @@
 import type { JobCreateResponse, JobMetadata, RestoreSettings } from './types';
+import { env } from '$env/dynamic/public';
 
-export const API_BASE_URL = 'http://localhost:8000';
+export const API_BASE_URL = env.PUBLIC_API_BASE_URL || 'http://localhost:8000';
 
 export async function createJob(file: File, settings: RestoreSettings): Promise<JobCreateResponse> {
 	const formData = new FormData();

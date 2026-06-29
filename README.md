@@ -35,6 +35,22 @@ Run the current smoke checks from this directory:
 python -m unittest discover -s tests
 ```
 
+## Docker Run
+
+Run the API and Web UI from this directory:
+
+```sh
+docker compose up --build
+```
+
+Then open `http://localhost:5173`. The API is exposed at `http://localhost:8000`.
+
+Stop the stack with:
+
+```sh
+docker compose down
+```
+
 ## License
 
 PixelReForge is licensed under AGPL-3.0-or-later. See `LICENSE`.

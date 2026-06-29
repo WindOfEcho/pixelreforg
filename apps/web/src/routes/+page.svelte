@@ -10,6 +10,15 @@
 		example: string;
 	};
 
+	type NotificationTone = 'info' | 'warning' | 'error';
+
+	type UiNotification = {
+		id: number;
+		tone: NotificationTone;
+		title: string;
+		message: string;
+	};
+
 	let selectedFile = $state<File | null>(null);
 	let sourcePreviewUrl = $state<string | null>(null);
 	let resultPreviewUrl = $state<string | null>(null);
@@ -26,9 +35,11 @@
 	let statusMessage = $state('Drop a pixel art image to start.');
 	let errorMessage = $state<string | null>(null);
 	let warningMessage = $state<string | null>(null);
+	let notifications = $state<UiNotification[]>([]);
 	let isDragging = $state(false);
 	let isProcessing = $state(false);
 	let isCancelling = $state(false);
+	let nextNotificationId = 1;
 
 	const basicHelp: HelpText[] = [
 		{
@@ -88,6 +99,7 @@
 
 	function selectFile(file: File | null) {
 		clearResult();
+		clearNotifications();
 		errorMessage = null;
 		warningMessage = null;
 		currentJobId = null;
@@ -103,23 +115,25 @@
 			selectedFile = null;
 			setSourcePreview(null);
 			errorMessage = 'Only image files are supported.';
+			addNotification('error', 'Unsupported file', errorMessage);
 			return;
 		}
 
 		selectedFile = file;
 		setSourcePreview(URL.createObjectURL(file));
 		statusMessage = 'Image ready. Review settings and start restoration.';
+
+		if (isJpegFile(file)) {
+			addNotification(
+				'warning',
+				'JPEG input detected',
+				'JPEG compression can add noise to pixel art. Auto scale may still work, but review the result and warnings after processing.'
+			);
+		}
 	}
 
 	async function restoreImage() {
 		if (!selectedFile || isProcessing) return;
-
-		if (scaleMode === 'auto') {
-			const confirmed = window.confirm(
-				'Auto scale detection can be uncertain on JPEG, blurred, or fractional-scale images. Continue and review warnings after processing?'
-			);
-			if (!confirmed) return;
-		}
 
 		clearResult();
 		errorMessage = null;
@@ -145,9 +159,14 @@
 			resultBlob = await downloadResult(created.job_id);
 			resultPreviewUrl = URL.createObjectURL(resultBlob);
 			warningMessage = completed.warnings.join(' ') || null;
+			if (warningMessage) {
+				addNotification('warning', 'Restoration warning', warningMessage);
+			}
+			addNotification('info', 'Image ready', 'Restoration complete. You can preview and download the PNG result.');
 			statusMessage = 'Restoration complete.';
 		} catch (error) {
 			errorMessage = error instanceof Error ? error.message : 'Unexpected processing error.';
+			addNotification('error', 'Restoration failed', errorMessage);
 			statusMessage = 'Restoration failed.';
 		} finally {
 			isProcessing = false;
@@ -163,8 +182,10 @@
 		try {
 			metadata = await cancelJob(currentJobId);
 			statusMessage = metadata.status === 'cancelled' ? 'Restoration cancelled.' : `Job is already ${metadata.status}.`;
+			addNotification('info', 'Processing stopped', statusMessage);
 		} catch (error) {
 			errorMessage = error instanceof Error ? error.message : 'Failed to cancel job.';
+			addNotification('error', 'Cancel failed', errorMessage);
 		} finally {
 			isProcessing = false;
 			isCancelling = false;
@@ -207,6 +228,32 @@
 	function setSourcePreview(url: string | null) {
 		if (sourcePreviewUrl) URL.revokeObjectURL(sourcePreviewUrl);
 		sourcePreviewUrl = url;
+	}
+
+	function isJpegFile(file: File): boolean {
+		const fileName = file.name.toLowerCase();
+		return file.type === 'image/jpeg' || fileName.endsWith('.jpg') || fileName.endsWith('.jpeg');
+	}
+
+	function addNotification(tone: NotificationTone, title: string, message: string) {
+		notifications = [
+			...notifications,
+			{
+				id: nextNotificationId,
+				tone,
+				title,
+				message
+			}
+		];
+		nextNotificationId += 1;
+	}
+
+	function dismissNotification(id: number) {
+		notifications = notifications.filter((notification) => notification.id !== id);
+	}
+
+	function clearNotifications() {
+		notifications = [];
 	}
 </script>
 
@@ -295,7 +342,7 @@
 					</label>
 				{:else}
 					<p class="notice">
-						Auto mode continues after a confirmation prompt and reports warnings if detection confidence is low.
+						Auto mode runs immediately and reports warnings in the PixelReForge interface when detection confidence is low.
 					</p>
 				{/if}
 			</div>
@@ -408,6 +455,22 @@
 	</section>
 </main>
 
+{#if notifications.length > 0}
+	<section class="notification-stack" aria-label="Interface messages" aria-live="polite">
+		{#each notifications as notification (notification.id)}
+			<article class={`notification ${notification.tone}`}>
+				<div>
+					<strong>{notification.title}</strong>
+					<p>{notification.message}</p>
+				</div>
+				<button type="button" aria-label="Dismiss notification" onclick={() => dismissNotification(notification.id)}>
+					Close
+				</button>
+			</article>
+		{/each}
+	</section>
+{/if}
+
 {#snippet HelpButton({ help }: { help: HelpText })}
 	<span class="help-wrap">
 		<button class="help-button" type="button" aria-describedby={help.id}>?</button>
@@ -495,6 +558,14 @@
 	.status, .warning, .error { margin: 14px 0 0; line-height: 1.5; }
 	.warning { color: #ffd88a; }
 	.error { color: #ff9c9c; }
+	.notification-stack { position: fixed; z-index: 20; right: clamp(14px, 3vw, 30px); bottom: clamp(14px, 3vw, 30px); display: grid; gap: 12px; width: min(420px, calc(100vw - 28px)); }
+	.notification { display: flex; align-items: start; justify-content: space-between; gap: 14px; padding: 14px; border: 1px solid rgba(244, 239, 231, 0.14); border-left-width: 5px; border-radius: 18px; background: rgba(17, 19, 29, 0.96); box-shadow: 0 18px 55px rgba(0, 0, 0, 0.42); backdrop-filter: blur(18px); }
+	.notification.info { border-left-color: #bdd785; }
+	.notification.warning { border-left-color: #ffd88a; }
+	.notification.error { border-left-color: #ff9c9c; }
+	.notification strong { display: block; color: #f4efe7; }
+	.notification p { margin: 5px 0 0; color: #c9c1b3; line-height: 1.45; }
+	.notification button { flex: 0 0 auto; border: 1px solid rgba(244, 239, 231, 0.16); border-radius: 999px; padding: 7px 10px; background: rgba(255, 255, 255, 0.06); color: #f4efe7; font: inherit; font-size: 0.78rem; font-weight: 900; cursor: pointer; }
 
 	.progress-card, .empty-result { display: grid; place-items: center; gap: 16px; min-height: 220px; border: 1px solid rgba(244, 239, 231, 0.1); border-radius: 20px; background: rgba(255, 255, 255, 0.04); text-align: center; }
 	.progress-bar { width: min(520px, 100%); height: 12px; overflow: hidden; border-radius: 999px; background: rgba(244, 239, 231, 0.1); }
@@ -510,6 +581,8 @@
 		.shell { padding-top: 24px; }
 		.section-header, .actions { align-items: stretch; flex-direction: column; }
 		.field-grid, .segmented, .metadata { grid-template-columns: 1fr; }
+		.notification-stack { right: 14px; bottom: 14px; }
+		.notification { flex-direction: column; }
 		h1 { font-size: clamp(2.35rem, 15vw, 4.2rem); }
 	}
 </style>

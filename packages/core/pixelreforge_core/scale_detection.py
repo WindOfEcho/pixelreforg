@@ -57,6 +57,9 @@ def _best_scale(signal: np.ndarray, image_size: int, min_scale: int, max_scale: 
 
 
 def _scale_confidence(signal: np.ndarray, scale: int) -> float:
+    if scale <= 1:
+        return 0.0
+
     buckets = np.array([signal[offset::scale].sum() for offset in range(scale)], dtype=np.float64)
     total = float(buckets.sum())
     if total == 0.0:
