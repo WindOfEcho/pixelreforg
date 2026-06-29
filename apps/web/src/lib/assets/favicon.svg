@@ -1,1 +1,47 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="107" height="128" viewBox="0 0 107 128"><title>svelte-logo</title><path d="M94.157 22.819c-10.4-14.885-30.94-19.297-45.792-9.835L22.282 29.608A29.92 29.92 0 0 0 8.764 49.65a31.5 31.5 0 0 0 3.108 20.231 30 30 0 0 0-4.477 11.183 31.9 31.9 0 0 0 5.448 24.116c10.402 14.887 30.942 19.297 45.791 9.835l26.083-16.624A29.92 29.92 0 0 0 98.235 78.35a31.53 31.53 0 0 0-3.105-20.232 30 30 0 0 0 4.474-11.182 31.88 31.88 0 0 0-5.447-24.116" style="fill:#ff3e00"/><path d="M45.817 106.582a20.72 20.72 0 0 1-22.237-8.243 19.17 19.17 0 0 1-3.277-14.503 18 18 0 0 1 .624-2.435l.49-1.498 1.337.981a33.6 33.6 0 0 0 10.203 5.098l.97.294-.09.968a5.85 5.85 0 0 0 1.052 3.878 6.24 6.24 0 0 0 6.695 2.485 5.8 5.8 0 0 0 1.603-.704L69.27 76.28a5.43 5.43 0 0 0 2.45-3.631 5.8 5.8 0 0 0-.987-4.371 6.24 6.24 0 0 0-6.698-2.487 5.7 5.7 0 0 0-1.6.704l-9.953 6.345a19 19 0 0 1-5.296 2.326 20.72 20.72 0 0 1-22.237-8.243 19.17 19.17 0 0 1-3.277-14.502 17.99 17.99 0 0 1 8.13-12.052l26.081-16.623a19 19 0 0 1 5.3-2.329 20.72 20.72 0 0 1 22.237 8.243 19.17 19.17 0 0 1 3.277 14.503 18 18 0 0 1-.624 2.435l-.49 1.498-1.337-.98a33.6 33.6 0 0 0-10.203-5.1l-.97-.294.09-.968a5.86 5.86 0 0 0-1.052-3.878 6.24 6.24 0 0 0-6.696-2.485 5.8 5.8 0 0 0-1.602.704L37.73 51.72a5.42 5.42 0 0 0-2.449 3.63 5.79 5.79 0 0 0 .986 4.372 6.24 6.24 0 0 0 6.698 2.486 5.8 5.8 0 0 0 1.602-.704l9.952-6.342a19 19 0 0 1 5.295-2.328 20.72 20.72 0 0 1 22.237 8.242 19.17 19.17 0 0 1 3.277 14.503 18 18 0 0 1-8.13 12.053l-26.081 16.622a19 19 0 0 1-5.3 2.328" style="fill:#fff"/></svg>
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   width="128"
+   height="128"
+   viewBox="0 0 128 128"
+   version="1.1"
+   id="svg2"
+   sodipodi:docname="favicon.svg"
+   xml:space="preserve"
+   inkscape:version="1.4 (86a8ad7, 2024-10-11)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:dc="http://purl.org/dc/elements/1.1/"><defs
+     id="defs2" /><sodipodi:namedview
+     id="namedview2"
+     pagecolor="#ffffff"
+     bordercolor="#999999"
+     borderopacity="1"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:zoom="4.4257813"
+     inkscape:cx="28.582524"
+     inkscape:cy="113.99117"
+     inkscape:window-width="2560"
+     inkscape:window-height="1351"
+     inkscape:window-x="-9"
+     inkscape:window-y="-9"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg2" /><title
+     id="title1">svelte-logo</title><metadata
+     id="metadata2"><rdf:RDF><cc:Work
+         rdf:about=""><dc:title>svelte-logo</dc:title></cc:Work></rdf:RDF></metadata><image
+     width="134.98642"
+     height="134.98642"
+     preserveAspectRatio="none"
+     xlink:href="data:image/png;base64,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&#10;AICR+x8VfEs0NdH+KQAAAABJRU5ErkJggg==&#10;"
+     id="image1"
+     x="-3.4932098"
+     y="-5.250679"
+     style="stroke-width:2.37061" /></svg>

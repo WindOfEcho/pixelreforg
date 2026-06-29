@@ -29,22 +29,34 @@
 		<h2 id="upload-title">Upload image</h2>
 	</div>
 
-	<div
+	<label
 		class:dragging={isDragging}
 		class="dropzone"
+		for="file-input"
+
 		ondragover={(event) => {
 			event.preventDefault();
 			isDragging = true;
 		}}
-		ondragleave={() => (isDragging = false)}
+
+		ondragleave={() => {
+			isDragging = false;
+		}}
+
 		ondrop={handleDrop}
-		role="button"
-		tabindex="0"
 	>
 		<strong>Drop image here</strong>
+		<p>or click to select</p>
 		<span>PNG, JPEG, GIF, or WebP input</span>
-		<input accept="image/*" type="file" onchange={handleFileInput} />
-	</div>
+	</label>
+
+	<input
+		id="file-input"
+		type="file"
+		accept="image/*"
+		onchange={handleFileInput}
+		hidden
+	/>
 
 	{#if selectedFile}
 		<p class="file-line">Selected: {selectedFile.name} ({Math.round(selectedFile.size / 1024)} KB)</p>

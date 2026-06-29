@@ -53,4 +53,5 @@ docker compose down
 
 ## License
 
-PixelReForge is licensed under AGPL-3.0-or-later. See `LICENSE`.
+Source code of PixelReForge is licensed under the AGPL-3.0-or-later. See `LICENSE`.
+Unless otherwise specified, all artwork, sprites, textures, icons, illustrations and other visual assets of PixelReForge © 2026 by WindOfEchos are licensed under Creative Commons Attribution-NonCommercial-NoDerivatives 4.0 International (CC BY-NC-ND 4.0). To view a copy of this license, visit https://creativecommons.org/licenses/by-nc-nd/4.0/
