@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.5] - 2026-07-01
+
+### Added
+
+- Production API logging with structured JSON output, request IDs via `ContextVar`, and `log_successful_requests` setting controlling whether successful requests are logged.
+- Optional Sentry integration for the backend (`sentry-sdk[fastapi]`), configurable via `PIXELREFORGE_SENTRY_DSN` and `PIXELREFORGE_SENTRY_TRACES_SAMPLE_RATE` environment variables.
+- New configuration module `settings.py` — environment-based `ApiSettings` dataclass with env, debug, log format/level, and Sentry DSN fields.
+- New `logging_config.py` module — JSON and plain-text formatters with `RequestContextFilter` for automatic request ID injection.
+- New `logging_context.py` module — `ContextVar`-based request ID propagation from API middleware to background job processing.
+- New `sentry_config.py` module — Sentry SDK initialisation with FastAPI and logging integrations.
+- Atomic metadata writes via temp-file rename (`write_metadata` writes to `.json.tmp` then replaces) to prevent partial/corrupt reads.
+- Structured logging events throughout the job lifecycle: `job_created`, `job_processing_started`, `job_processing_completed`, `job_cancelled`, `job_processing_failed`.
+- Request ID propagation from HTTP middleware to background `process_job` via `set_request_id`/`reset_request_id`.
+
+### Changed
+
+- API tests migrated from `unittest.TestCase` to `pytest` fixtures (`client` fixture, `monkeypatch`, `capsys`, `caplog`).
+- Expanded test coverage: request ID header preservation, JSON logging output, environment-based settings read, Sentry enable/disable logic, processing failure logging with job ID, and empty metadata file regression test.
+- Dockerfile (`infra/docker/api.Dockerfile`) sets production defaults: `PIXELREFORGE_ENV=production`, `PIXELREFORGE_LOG_FORMAT=json`, `PIXELREFORGE_LOG_LEVEL=INFO`.
+- `sentry-sdk[fastapi]>=2.0` added to `apps/api/requirements.txt`.
+
+### Fixed
+
+- `read_metadata` now catches `Pydantic ValidationError` from empty or partially-written metadata files and returns `None` (resulting in HTTP 404) instead of crashing with an unhandled exception. Logs `job_metadata_unreadable` event on failure. (Fixes **PYTHON-FASTAPI-3**)
+
 ## [0.0.4] - 2026-06-30
 
 ### Added

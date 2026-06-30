@@ -1,13 +1,16 @@
 from pathlib import Path
 import json
+import logging
 import shutil
 from uuid import uuid4
 
 from fastapi import UploadFile
+from pydantic import ValidationError
 
 from .models import JobMetadata
 
 
+logger = logging.getLogger(__name__)
 ROOT = Path(__file__).resolve().parents[3]
 RUNTIME_DIR = ROOT / "runtime" / "jobs"
 
@@ -29,6 +32,7 @@ def create_job(file: UploadFile) -> JobMetadata:
         input_path=str(input_path.relative_to(ROOT)),
     )
     write_metadata(metadata)
+    logger.info("Job created.", extra={"event": "job_created", "job_id": job_id, "status": metadata.status})
     return metadata
 
 
@@ -44,13 +48,22 @@ def read_metadata(job_id: str) -> JobMetadata | None:
     metadata_path = get_metadata_path(job_id)
     if not metadata_path.exists():
         return None
-    return JobMetadata.model_validate_json(metadata_path.read_text(encoding="utf-8"))
+    try:
+        return JobMetadata.model_validate_json(metadata_path.read_text(encoding="utf-8"))
+    except ValidationError as exc:
+        logger.warning(
+            "Job metadata is unreadable.",
+            extra={"event": "job_metadata_unreadable", "job_id": job_id, "error_type": type(exc).__name__},
+        )
+        return None
 
 
 def write_metadata(metadata: JobMetadata) -> None:
     metadata_path = get_metadata_path(metadata.job_id)
     metadata_path.parent.mkdir(parents=True, exist_ok=True)
-    metadata_path.write_text(
+    temp_path = metadata_path.with_suffix(".json.tmp")
+    temp_path.write_text(
         json.dumps(metadata.model_dump(), ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
+    temp_path.replace(metadata_path)

@@ -1,13 +1,27 @@
-from fastapi import BackgroundTasks, FastAPI, File, HTTPException, Query, UploadFile
+import logging
+import time
+from uuid import uuid4
+
+from fastapi import BackgroundTasks, FastAPI, File, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
+from .logging_config import configure_logging
+from .logging_context import get_request_id, reset_request_id, set_request_id
 from .models import JobCreateResponse, JobMetadata, PaletteCleanupMode, RestoreAlgorithm, ScaleMode
 from .processing import output_file_path, process_job
+from .sentry_config import configure_sentry
+from .settings import load_settings
 from .storage import create_job, read_metadata, write_metadata
 
 
+logger = logging.getLogger(__name__)
+
+
 def create_app() -> FastAPI:
+    settings = load_settings()
+    configure_logging(settings)
+    configure_sentry(settings)
     api = FastAPI(title="PixelReForge API", version="0.1.0")
     api.add_middleware(
         CORSMiddleware,
@@ -16,6 +30,59 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    logger.info(
+        "API logging configured.",
+        extra={
+            "event": "api_logging_configured",
+            "env": settings.env,
+            "debug": settings.debug,
+            "log_level": settings.log_level,
+            "log_format": settings.log_format,
+        },
+    )
+
+    @api.middleware("http")
+    async def request_logging_middleware(request: Request, call_next):  # type: ignore[no-untyped-def]
+        request_id = request.headers.get("X-Request-ID") or uuid4().hex
+        token = set_request_id(request_id)
+        started = time.perf_counter()
+        status_code = 500
+        try:
+            response = await call_next(request)
+            status_code = response.status_code
+            response.headers["X-Request-ID"] = request_id
+            return response
+        except Exception:
+            duration_ms = round((time.perf_counter() - started) * 1000, 2)
+            logger.exception(
+                "Request failed.",
+                extra={
+                    "event": "request_failed",
+                    "method": request.method,
+                    "path": request.url.path,
+                    "request_id": request_id,
+                    "status_code": status_code,
+                    "duration_ms": duration_ms,
+                },
+            )
+            raise
+        finally:
+            duration_ms = round((time.perf_counter() - started) * 1000, 2)
+            if settings.log_successful_requests or status_code >= 400:
+                level = logging.WARNING if status_code >= 400 else logging.INFO
+                logger.log(
+                    level,
+                    "Request finished.",
+                    extra={
+                        "event": "request_finished",
+                        "method": request.method,
+                        "path": request.url.path,
+                        "request_id": request_id,
+                        "status_code": status_code,
+                        "duration_ms": duration_ms,
+                    },
+                )
+            reset_request_id(token)
 
     @api.get("/health")
     def health() -> dict[str, str]:
@@ -61,6 +128,7 @@ def create_app() -> FastAPI:
             palette_target_colors,
             noisy_color_bucket_size,
             confidence_threshold,
+            get_request_id(),
         )
         return JobCreateResponse(
             job_id=metadata.job_id,
@@ -100,6 +168,7 @@ def create_app() -> FastAPI:
         metadata.status = "cancelled"
         metadata.error = None
         write_metadata(metadata)
+        logger.info("Job cancelled.", extra={"event": "job_cancelled", "job_id": job_id, "status": metadata.status})
         return metadata
 
     return api
