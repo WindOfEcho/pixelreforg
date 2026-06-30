@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.3] - 2026-06-30
+
+### Added
+
+- Landing page at `/` and dedicated processing route at `/process` with separate SEO metadata.
+- Tailwind CSS and shadcn-svelte compatible UI primitives for buttons, sliders, and tooltips while preserving the PixelReForge mascot theme.
+- Interactive result comparison with side-by-side and slider modes, synchronized preview pan/scroll, and matched source/result display size.
+- Compact metadata help tooltips for processing result details.
+
+### Changed
+
+- Refactored the large global stylesheet into semantic theme tokens plus Tailwind utility-based component styling.
+- Unified small UI/help text typography across algorithm settings and result metadata.
+- Renamed result metadata from `Target size` to `Result size` and grouped it with `Source size`.
+- Non-error notifications now auto-dismiss only while the PixelReForge tab is visible; errors remain until dismissed.
+
+### Fixed
+
+- File picker no longer allows broad unsupported `image/*` selection; UI now pre-validates PNG, JPEG, GIF, and WebP.
+- Debug and production UI errors now show different levels of detail without leaking raw technical errors in production.
+- Help icon alignment inside the circular `?` button.
+
 ## [0.0.2] - 2026-06-29
 
 ### Added

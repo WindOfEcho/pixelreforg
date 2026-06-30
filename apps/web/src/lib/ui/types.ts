@@ -2,8 +2,8 @@ export type HelpText = {
 	id: string;
 	label: string;
 	description: string;
-	impact: string;
-	example: string;
+	impact?: string;
+	example?: string;
 };
 
 export type NotificationTone = 'info' | 'warning' | 'error';
