@@ -13,4 +13,5 @@ export type UiNotification = {
 	tone: NotificationTone;
 	title: string;
 	message: string;
+	autoDismissMs?: number;
 };

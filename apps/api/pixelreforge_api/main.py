@@ -2,7 +2,7 @@ from fastapi import BackgroundTasks, FastAPI, File, HTTPException, Query, Upload
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
-from .models import JobCreateResponse, JobMetadata, ScaleMode
+from .models import JobCreateResponse, JobMetadata, PaletteCleanupMode, RestoreAlgorithm, ScaleMode
 from .processing import output_file_path, process_job
 from .storage import create_job, read_metadata, write_metadata
 
@@ -25,10 +25,17 @@ def create_app() -> FastAPI:
     def create_processing_job(
         background_tasks: BackgroundTasks,
         file: UploadFile = File(...),
+        algorithm: RestoreAlgorithm = Query(default="auto"),
         scale_mode: ScaleMode = Query(default="manual"),
         scale: int | None = Query(default=4, ge=2, le=16),
         min_scale: int = Query(default=2, ge=1, le=64),
         max_scale: int = Query(default=16, ge=1, le=64),
+        original_width: int | None = Query(default=None, ge=1),
+        original_height: int | None = Query(default=None, ge=1),
+        palette_cleanup: PaletteCleanupMode = Query(default="off"),
+        palette_merge_distance: float | None = Query(default=None, ge=0.0, le=128.0),
+        palette_target_colors: int | None = Query(default=None, ge=1, le=256),
+        noisy_color_bucket_size: int = Query(default=16, ge=2, le=64),
         confidence_threshold: float = Query(default=0.45, ge=0.0, le=1.0),
     ) -> JobCreateResponse:
         if file.content_type is not None and not file.content_type.startswith("image/"):
@@ -42,10 +49,17 @@ def create_app() -> FastAPI:
         background_tasks.add_task(
             process_job,
             metadata.job_id,
+            algorithm,
             scale_mode,
             scale,
             min_scale,
             max_scale,
+            original_width,
+            original_height,
+            palette_cleanup,
+            palette_merge_distance,
+            palette_target_colors,
+            noisy_color_bucket_size,
             confidence_threshold,
         )
         return JobCreateResponse(

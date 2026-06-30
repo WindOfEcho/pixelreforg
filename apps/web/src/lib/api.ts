@@ -8,14 +8,31 @@ export async function createJob(file: File, settings: RestoreSettings): Promise<
 	const formData = new FormData();
 	formData.append('file', file);
 	const params = new URLSearchParams({
+		algorithm: settings.algorithm,
 		scale_mode: settings.scaleMode,
-		min_scale: String(settings.minScale),
-		max_scale: String(settings.maxScale),
-		confidence_threshold: String(settings.confidenceThreshold)
+		min_scale: String(validNumber(settings.minScale, 2)),
+		max_scale: String(validNumber(settings.maxScale, 16)),
+		palette_cleanup: settings.paletteCleanup,
+		confidence_threshold: String(validNumber(settings.confidenceThreshold, 0.45))
 	});
 
-	if (settings.scaleMode === 'manual') {
+	if (settings.scaleMode === 'manual' && isValidNumber(settings.manualScale)) {
 		params.set('scale', String(settings.manualScale));
+	}
+	if (isValidNumber(settings.originalWidth)) {
+		params.set('original_width', String(settings.originalWidth));
+	}
+	if (isValidNumber(settings.originalHeight)) {
+		params.set('original_height', String(settings.originalHeight));
+	}
+	if (settings.paletteCleanup === 'custom' && isValidNumber(settings.paletteMergeDistance)) {
+		params.set('palette_merge_distance', String(settings.paletteMergeDistance));
+	}
+	if (settings.paletteCleanup === 'custom' && isValidNumber(settings.paletteTargetColors)) {
+		params.set('palette_target_colors', String(settings.paletteTargetColors));
+	}
+	if (isValidNumber(settings.noisyColorBucketSize)) {
+		params.set('noisy_color_bucket_size', String(settings.noisyColorBucketSize));
 	}
 
 	const endpoint = `${API_BASE_URL}/api/jobs?${params.toString()}`;
@@ -71,4 +88,12 @@ async function responseText(response: Response, fallback: string): Promise<strin
 async function apiError(response: Response, endpoint: string, fallback: string): Promise<ApiError> {
 	const body = await responseText(response, fallback);
 	return new ApiError(body, response.status, endpoint, body);
+}
+
+function validNumber(value: number | null | undefined, fallback: number): number {
+	return isValidNumber(value) ? value : fallback;
+}
+
+function isValidNumber(value: number | null | undefined): value is number {
+	return typeof value === 'number' && Number.isFinite(value);
 }

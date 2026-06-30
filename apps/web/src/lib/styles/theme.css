@@ -60,6 +60,10 @@ summary {
 	-webkit-tap-highlight-color: transparent;
 }
 
+input[type='radio'] {
+	accent-color: var(--color-action);
+}
+
 img {
 	max-width: 100%;
 }
@@ -80,6 +84,10 @@ img {
 	background-size: 24px 24px;
 }
 
+.pixel-preview img {
+	max-width: none;
+}
+
 .pixelated {
 	image-rendering: pixelated;
 }
@@ -96,5 +104,15 @@ img {
 
 	100% {
 		transform: translateX(260%);
+	}
+}
+
+@keyframes notification-countdown {
+	0% {
+		transform: scaleX(0);
+	}
+
+	100% {
+		transform: scaleX(1);
 	}
 }

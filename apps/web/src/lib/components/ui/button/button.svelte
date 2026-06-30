@@ -28,13 +28,13 @@
 	const sizes: Record<Size, string> = {
 		sm: 'min-h-9 px-3 text-sm',
 		md: 'min-h-11 px-4 text-lg',
-		lg: 'min-h-13 px-5 text-2xl'
+		lg: 'min-h-14 px-7 text-2xl'
 	};
 </script>
 
 <button
 	class={cn(
-		'inline-flex items-center justify-center rounded-2xl font-black tracking-[0.08em] transition hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--color-accent-strong)] disabled:pointer-events-none disabled:opacity-55',
+		'inline-flex items-center justify-center rounded-2xl font-black tracking-[0.12em] transition hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--color-accent-strong)] disabled:pointer-events-none disabled:opacity-55',
 		variants[variant],
 		sizes[size],
 		className

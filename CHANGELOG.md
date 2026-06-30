@@ -5,6 +5,39 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.4] - 2026-06-30
+
+### Added
+
+- New `noisy-pixel-v1` restoration algorithm with dominant-color cluster resampling for JPEG and AI artifacts.
+- New `preflight.py` module — automatic image analysis that scores noise, JPEG artifacts, and AI artifacts to recommend the best algorithm.
+- New `palette.py` module — near-duplicate color merging with presets (off, light, medium, strong) and custom merge distance / target colors.
+- Algorithm selector in Settings panel (Smart auto, Fast integer, Noisy pixel) with disable states for unimplemented algorithms.
+- Palette cleanup control with inline help, custom mode sliders for merge distance and target colors.
+- Original size override input fields (width/height) in advanced settings.
+- Notification auto-dismiss with animated countdown progress bar and proper timer cancellation via `SvelteMap`.
+- Help tooltips for all new settings (algorithm, palette cleanup, color bucket, merge distance, target colors).
+- API support for `algorithm`, `palette_cleanup`, `palette_merge_distance`, `palette_target_colors`, `noisy_color_bucket_size`, `original_width`, `original_height` query parameters.
+- Metadata fields in job responses: `algorithm_requested`, `algorithm_used`, `algorithm_version`, `original_size_override`, `palette_cleanup`, `analysis` (with preflight scores), `palette` (color counts, top colors), `reconstruction` (resize method, bucket size).
+- Test fixtures `test-ai-1.png`, `test-ai-2.png` and new test modules `test_core_palette.py`, `test_core_preflight.py`, `test_ai_fixtures_pytest.py`.
+- API integration tests for auto algorithm fallback and explicit noisy-pixel algorithm.
+
+### Changed
+
+- Core `pipeline.process_image` now resolves algorithm based on preflight analysis when set to `auto`; orchestrates palette cleanup and returns rich metadata.
+- Settings panel now shows scale mode and advanced options only when a concrete algorithm is selected.
+- Download button height increased from `min-h-13` to `min-h-14` with wider horizontal padding.
+- Button tracking increased from `0.08em` to `0.12em` for consistency.
+- Image preview containers use `max-w-full`/`min-w-0` to prevent overflow in constrained layouts.
+- Result metadata panel now shows algorithm (requested → used), recommended algorithm, and palette cleanup info.
+- Job polling timeout increased from ~30 seconds to 120 seconds with explicit deadline constant.
+
+### Fixed
+
+- Radio input `accent-color` now uses theme color for visibility.
+- Notification dismissal now properly clears its auto-dismiss timer.
+- Notification timers tracked in a `SvelteMap` to avoid stale closure references on re-render.
+
 ## [0.0.3] - 2026-06-30
 
 ### Added

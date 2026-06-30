@@ -1,12 +1,17 @@
 <script lang="ts">
+	import { SvelteMap } from 'svelte/reactivity';
 	import NotificationStack from '$lib/components/restoration/NotificationStack.svelte';
 	import ResultPanel from '$lib/components/restoration/ResultPanel.svelte';
 	import SettingsPanel from '$lib/components/restoration/SettingsPanel.svelte';
 	import UploadPanel, { SUPPORTED_IMAGE_ACCEPT } from '$lib/components/restoration/UploadPanel.svelte';
 	import { cancelJob, createJob, downloadResult, getJob } from '$lib/api';
-	import type { JobMetadata, RestoreSettings, ScaleMode } from '$lib/types';
+	import type { JobMetadata, PaletteCleanupMode, RestoreAlgorithm, RestoreSettings, ScaleMode } from '$lib/types';
 	import { logUiError, userErrorMessage } from '$lib/ui/errors';
 	import type { NotificationTone, UiNotification } from '$lib/ui/types';
+
+	const JOB_POLL_INTERVAL_MS = 500;
+	const JOB_TIMEOUT_MS = 120_000;
+	const NOTIFICATION_AUTO_DISMISS_MS = 6000;
 
 	let selectedFile = $state<File | null>(null);
 	let sourcePreviewUrl = $state<string | null>(null);
@@ -14,6 +19,7 @@
 	let resultBlob = $state<Blob | null>(null);
 	let metadata = $state<JobMetadata | null>(null);
 	let currentJobId = $state<string | null>(null);
+	let algorithm = $state<RestoreAlgorithm>('auto');
 	let scaleMode = $state<ScaleMode>('auto');
 	let manualScale = $state(4);
 	let minScale = $state(2);
@@ -21,6 +27,10 @@
 	let confidenceThreshold = $state(0.45);
 	let originalWidth = $state<number | undefined>();
 	let originalHeight = $state<number | undefined>();
+	let paletteCleanup = $state<PaletteCleanupMode>('off');
+	let paletteMergeDistance = $state(18);
+	let paletteTargetColors = $state<number | undefined>();
+	let noisyColorBucketSize = $state(16);
 	let statusMessage = $state('Drop a pixel art image to start.');
 	let errorMessage = $state<string | null>(null);
 	let warningMessage = $state<string | null>(null);
@@ -29,6 +39,7 @@
 	let isProcessing = $state(false);
 	let isCancelling = $state(false);
 	let nextNotificationId = 1;
+	const notificationTimers = new SvelteMap<number, number>();
 
 	function selectFile(file: File | null) {
 		clearResult();
@@ -128,21 +139,36 @@
 	}
 
 	async function waitForCompletion(jobId: string): Promise<JobMetadata> {
-		for (let attempt = 0; attempt < 60; attempt += 1) {
+		const deadline = Date.now() + JOB_TIMEOUT_MS;
+		while (Date.now() < deadline) {
 			const job = await getJob(jobId);
 
 			if (job.status === 'completed' || job.status === 'cancelled') return job;
 			if (job.status === 'failed') throw new Error(job.error ?? 'Processing job failed.');
 
 			statusMessage = `Processing image... ${job.status}`;
-			await new Promise((resolve) => setTimeout(resolve, 500));
+			await new Promise((resolve) => setTimeout(resolve, JOB_POLL_INTERVAL_MS));
 		}
 
 		throw new Error('Processing timed out.');
 	}
 
 	function currentSettings(): RestoreSettings {
-		return { scaleMode, manualScale, minScale, maxScale, confidenceThreshold };
+		const resolvedScaleMode = algorithm === 'integer-grid-v1' || algorithm === 'noisy-pixel-v1' ? scaleMode : 'auto';
+		return {
+			algorithm,
+			scaleMode: resolvedScaleMode,
+			manualScale,
+			minScale,
+			maxScale,
+			originalWidth,
+			originalHeight,
+			paletteCleanup,
+			paletteMergeDistance,
+			paletteTargetColors,
+			noisyColorBucketSize,
+			confidenceThreshold
+		};
 	}
 
 	function clearResult() {
@@ -168,15 +194,28 @@
 	}
 
 	function addNotification(tone: NotificationTone, title: string, message: string) {
-		notifications = [...notifications, { id: nextNotificationId, tone, title, message }];
+		const id = nextNotificationId;
+		const autoDismissMs = tone === 'error' ? undefined : NOTIFICATION_AUTO_DISMISS_MS;
+		notifications = [...notifications, { id, tone, title, message, autoDismissMs }];
 		nextNotificationId += 1;
+		if (autoDismissMs) {
+			notificationTimers.set(
+				id,
+				window.setTimeout(() => dismissNotification(id), autoDismissMs)
+			);
+		}
 	}
 
 	function dismissNotification(id: number) {
+		const timer = notificationTimers.get(id);
+		if (timer) window.clearTimeout(timer);
+		notificationTimers.delete(id);
 		notifications = notifications.filter((notification) => notification.id !== id);
 	}
 
 	function clearNotifications() {
+		for (const timer of notificationTimers.values()) window.clearTimeout(timer);
+		notificationTimers.clear();
 		notifications = [];
 	}
 </script>
@@ -195,10 +234,11 @@
 		</div>
 	</section>
 
-	<section class="mx-auto grid max-w-6xl gap-5" aria-label="Image restoration workflow">
+	<section class="mx-auto grid w-full max-w-6xl min-w-0 gap-5" aria-label="Image restoration workflow">
 		<UploadPanel {selectedFile} {sourcePreviewUrl} bind:isDragging onFileSelected={selectFile} />
 
 		<SettingsPanel
+			bind:algorithm
 			bind:scaleMode
 			bind:manualScale
 			bind:minScale
@@ -206,6 +246,10 @@
 			bind:confidenceThreshold
 			bind:originalWidth
 			bind:originalHeight
+			bind:paletteCleanup
+			bind:paletteMergeDistance
+			bind:paletteTargetColors
+			bind:noisyColorBucketSize
 			{selectedFile}
 			{isProcessing}
 			{isCancelling}
