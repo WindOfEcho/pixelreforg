@@ -32,7 +32,16 @@ def create_job(file: UploadFile) -> JobMetadata:
         input_path=str(input_path.relative_to(ROOT)),
     )
     write_metadata(metadata)
-    logger.info("Job created.", extra={"event": "job_created", "job_id": job_id, "status": metadata.status})
+    logger.info(
+        "Job created.",
+        extra={
+            "event": "job_created",
+            "job_id": job_id,
+            "status": metadata.status,
+            "input_filename": filename,
+            "content_type": file.content_type,
+        },
+    )
     return metadata
 
 

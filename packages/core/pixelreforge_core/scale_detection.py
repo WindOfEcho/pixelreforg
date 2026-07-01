@@ -86,23 +86,29 @@ def _scale_confidence(signal: np.ndarray, scale: int) -> float:
     return max(0.0, (concentration - baseline) / (1.0 - baseline))
 
 
-def _best_fractional_scale(signal: np.ndarray, image_size: int, min_scale: int, max_scale: int, scale_step: float) -> tuple[float, float]:
+def _best_fractional_scale(signal: np.ndarray, image_size: int, min_scale: int, max_scale: int, _scale_step: float) -> tuple[float, float]:
     if signal.size == 0 or max_scale < min_scale or float(signal.sum()) == 0.0:
         return 1.0, 0.0
 
-    step = max(0.05, float(scale_step))
-    best_scale = 1.0
-    best_confidence = 0.0
-    candidate_count = int(np.floor((max_scale - min_scale) / step)) + 1
-    for index in range(max(1, candidate_count)):
-        scale = min_scale + (index * step)
-        if scale > max_scale + 1e-9:
-            break
-        target_size = max(1, int(round(image_size / scale)))
+    min_target = max(1, int(np.ceil(image_size / max_scale)))
+    max_target = max(1, int(np.floor(image_size / max(1, min_scale))))
+    candidates: list[tuple[float, float]] = []
+    for target_size in range(min_target, max_target + 1):
+        scale = image_size / target_size
         confidence = _target_size_confidence(signal, image_size, target_size)
-        if confidence >= 0.2 and (confidence > best_confidence + 0.02 or (abs(confidence - best_confidence) <= 0.02 and scale > best_scale)):
-            best_scale = image_size / target_size
-            best_confidence = confidence
+        if confidence >= 0.2:
+            candidates.append((scale, confidence))
+
+    if not candidates:
+        return 1.0, 0.0
+
+    larger_candidates = [(scale, confidence) for scale, confidence in candidates if scale >= 2.0]
+    if larger_candidates:
+        best_large_confidence = max(confidence for _, confidence in larger_candidates)
+        viable = [(scale, confidence) for scale, confidence in larger_candidates if confidence >= best_large_confidence - 0.20]
+        best_scale, best_confidence = max(viable, key=lambda item: item[0])
+    else:
+        best_scale, best_confidence = max(candidates, key=lambda item: (item[1], item[0]))
 
     return best_scale, min(1.0, best_confidence)
 
@@ -125,4 +131,3 @@ def _target_size_confidence(signal: np.ndarray, image_size: int, target_size: in
     if baseline >= 1.0:
         return 0.0
     return max(0.0, (concentration - baseline) / (1.0 - baseline))
-

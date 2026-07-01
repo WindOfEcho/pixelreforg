@@ -107,6 +107,11 @@ def process_job(
                 "stage": "completed",
                 "duration_ms": duration_ms,
                 "algorithm_used": metadata.algorithm_used,
+                "scale_x": metadata.scale_x,
+                "scale_y": metadata.scale_y,
+                "source_size": metadata.source_size,
+                "target_size": metadata.target_size,
+                "resize_method": (metadata.reconstruction or {}).get("resize_method"),
                 "warnings_count": len(metadata.warnings),
             },
         )

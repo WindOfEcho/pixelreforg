@@ -152,6 +152,40 @@ class CoreRestoreTests(unittest.TestCase):
         self.assertEqual((32, 32), result.target_size)
         self.assertEqual("resampled-grid-dominant-color-cluster", result.reconstruction["resize_method"])
 
+    def test_auto_uses_resampled_grid_for_fractional_scale_fixtures(self) -> None:
+        original = Image.open(ROOT / "tests" / "fixtures" / "test-original.png").convert("RGBA")
+        expected = np.asarray(original)
+
+        for fixture_name, scale in (("test-x3.6.png", 115 / 32), ("test-x6.3.png", 201 / 32)):
+            with self.subTest(fixture=fixture_name):
+                image = Image.open(ROOT / "tests" / "fixtures" / fixture_name)
+                result = process_image(image, RestoreSettings(algorithm="auto", scale_mode="auto", min_scale=1, max_scale=16))
+
+                self.assertEqual("resampled-grid-v2", result.algorithm_used)
+                self.assertEqual((32, 32), result.target_size)
+                self.assertAlmostEqual(scale, result.scale.scale_x)
+                self.assertAlmostEqual(scale, result.scale.scale_y)
+                np.testing.assert_array_equal(expected, np.asarray(result.image.convert("RGBA")))
+
+    def test_auto_handles_different_x_y_scale_fixtures(self) -> None:
+        expected = np.asarray(Image.open(ROOT / "tests" / "fixtures" / "test-original.png").convert("RGBA"))
+
+        cases = (
+            ("test-Xx5-Yx6.png", "integer-grid-v1", 5.0, 6.0),
+            ("test-Xx5-Yx6.3.png", "resampled-grid-v2", 5.0, 201 / 32),
+        )
+        for fixture_name, algorithm, scale_x, scale_y in cases:
+            with self.subTest(fixture=fixture_name):
+                image = Image.open(ROOT / "tests" / "fixtures" / fixture_name)
+                result = process_image(image, RestoreSettings(algorithm="auto", scale_mode="auto", min_scale=1, max_scale=16))
+                restored = np.asarray(result.image.convert("RGBA"))
+
+                self.assertEqual(algorithm, result.algorithm_used)
+                self.assertEqual((32, 32), result.target_size)
+                self.assertAlmostEqual(scale_x, result.scale.scale_x)
+                self.assertAlmostEqual(scale_y, result.scale.scale_y)
+                self.assertLessEqual(self._mean_absolute_error(restored, expected), 3.0)
+
     def _make_synthetic_pixel_art(self) -> np.ndarray:
         image = np.full((12, 14, 3), [186, 204, 142], dtype=np.uint8)
         image[2:10, 3:11] = [40, 36, 55]

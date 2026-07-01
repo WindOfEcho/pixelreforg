@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.7] - 2026-07-01
+
+### Added
+
+- Different X/Y scale test fixtures (`test-Xx5-Yx6.png`, `test-Xx5-Yx6.3.png`) with regression tests.
+- Enriched job creation log with `input_filename` and `content_type` fields.
+- Enriched job completion metadata with `scale_x`, `scale_y`, `source_size`, `target_size`, `resize_method`.
+- `scale_detection` metadata sub-dict (`integer` / `fractional`) in pipeline result metadata for auto mode.
+
+### Changed
+
+- `_best_fractional_scale` rewritten to enumerate target sizes instead of stepping through scales; prefers larger scales among viable candidates, improving different X/Y scale detection.
+- `_select_scale_and_algorithm` introduced for auto mode — runs both integer and fractional detectors and selects the best algorithm/scale automatically.
+
 ## [0.0.6] - 2026-07-01
 
 ### Added
