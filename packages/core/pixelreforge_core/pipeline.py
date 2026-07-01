@@ -4,6 +4,7 @@ from dataclasses import replace
 from PIL import Image
 import numpy as np
 
+from .ai_pixel import restore_ai_pixel_art
 from .image_io import load_image
 from .models import ProcessingResult, RestoreSettings, ScaleEstimate
 from .palette import restore_palette
@@ -34,6 +35,11 @@ def process_image(image: Image.Image, settings: RestoreSettings | None = None) -
         resize_method = "resampled-grid-majority"
         target_width, target_height = _target_size_from_scale(source_size, scale.scale_x, scale.scale_y)
         restored = downscale_by_resampled_grid(image_array, target_width, target_height)
+    elif algorithm_used == "ai-pixel-v2":
+        resize_method = "ai-pixel-v2-resampled-cluster"
+        target_width, target_height = _target_size_from_scale(source_size, scale.scale_x, scale.scale_y)
+        ai_result = restore_ai_pixel_art(image_array, target_width, target_height, settings.noisy_color_bucket_size)
+        restored = ai_result.image
     elif algorithm_used == "noisy-pixel-v1" and _uses_fractional_grid(scale.scale_x, scale.scale_y):
         resize_method = "resampled-grid-dominant-color-cluster"
         target_width, target_height = _target_size_from_scale(source_size, scale.scale_x, scale.scale_y)
@@ -90,7 +96,8 @@ def process_image(image: Image.Image, settings: RestoreSettings | None = None) -
             "resize_method": resize_method,
             "noisy_color_bucket_size": settings.noisy_color_bucket_size,
             "fractional_scale_step": settings.fractional_scale_step,
-        },
+        }
+        | (ai_result.metadata if algorithm_used == "ai-pixel-v2" else {}),
         warnings=tuple(warnings),
     )
 
@@ -106,6 +113,8 @@ def _resolve_algorithm(settings: RestoreSettings, recommended_algorithm: str) ->
         return "noisy-pixel-v1"
     if settings.algorithm == "resampled-grid-v2":
         return "resampled-grid-v2"
+    if settings.algorithm == "ai-pixel-v2":
+        return "ai-pixel-v2"
     if settings.algorithm == "auto":
         if recommended_algorithm in ("integer-grid-v1", "resampled-grid-v2", "noisy-pixel-v1"):
             return recommended_algorithm

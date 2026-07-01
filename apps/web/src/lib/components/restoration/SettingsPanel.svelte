@@ -58,11 +58,11 @@
 	}
 
 	function supportsScaleControls(value: RestoreAlgorithm) {
-		return value === 'integer-grid-v1' || value === 'resampled-grid-v2' || value === 'noisy-pixel-v1';
+		return value === 'integer-grid-v1' || value === 'resampled-grid-v2' || value === 'noisy-pixel-v1' || value === 'ai-pixel-v2';
 	}
 
 	function supportsFractionalControls(value: RestoreAlgorithm) {
-		return value === 'resampled-grid-v2' || value === 'noisy-pixel-v1';
+		return value === 'resampled-grid-v2' || value === 'noisy-pixel-v1' || value === 'ai-pixel-v2';
 	}
 </script>
 
@@ -96,6 +96,10 @@
 					<span class="flex items-center gap-2"><input type="radio" bind:group={algorithm} value="noisy-pixel-v1" disabled={isProcessing} /> Noisy pixel</span>
 					<small class="readable-copy text-sm text-[var(--color-text-muted)]">For JPEG and AI artifacts.</small>
 				</label>
+				<label class={[modeClass(algorithm === 'ai-pixel-v2'), 'flex min-h-12 cursor-pointer flex-col justify-center gap-1 rounded-2xl border px-4 py-3 text-xl']}>
+					<span class="flex items-center gap-2"><input type="radio" bind:group={algorithm} value="ai-pixel-v2" disabled={isProcessing} /> AI pixel v2</span>
+					<small class="readable-copy text-sm text-[var(--color-text-muted)]">Explicit mode for rough AI pixel art.</small>
+				</label>
 			</div>
 		</div>
 
@@ -111,9 +115,13 @@
 			<p class="readable-copy m-0 leading-7 text-[var(--color-text-muted)]">
 				Resampled v2 restores non-integer upscales. Use manual scale or Advanced original size for best quality.
 			</p>
+		{:else if algorithm === 'ai-pixel-v2'}
+			<p class="readable-copy m-0 leading-7 text-[var(--color-text-muted)]">
+				AI pixel v2 uses fractional grid recovery, color clustering, and isolated artifact cleanup. Smart auto will not select it yet.
+			</p>
 		{/if}
 
-		{#if algorithm === 'noisy-pixel-v1'}
+		{#if algorithm === 'noisy-pixel-v1' || algorithm === 'ai-pixel-v2'}
 			<label class="grid gap-2">
 				<div class="readable-copy flex items-center gap-2 text-sm font-medium leading-5 tracking-normal text-[var(--color-text)]">
 					<span>Color bucket size</span>

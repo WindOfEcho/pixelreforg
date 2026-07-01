@@ -186,6 +186,30 @@ class CoreRestoreTests(unittest.TestCase):
                 self.assertAlmostEqual(scale_y, result.scale.scale_y)
                 self.assertLessEqual(self._mean_absolute_error(restored, expected), 3.0)
 
+    def test_explicit_ai_pixel_v2_uses_cluster_grid_and_artifact_cleanup(self) -> None:
+        image = Image.open(ROOT / "tests" / "fixtures" / "test-ai-2.png")
+        image.thumbnail((256, 256))
+        source_size = image.size
+
+        result = process_image(
+            image,
+            RestoreSettings(algorithm="ai-pixel-v2", scale_mode="manual", manual_scale_x=2, manual_scale_y=2),
+        )
+
+        self.assertEqual("ai-pixel-v2", result.algorithm_used)
+        self.assertEqual((source_size[0] // 2, source_size[1] // 2), result.target_size)
+        self.assertEqual("ai-pixel-v2-resampled-cluster", result.reconstruction["resize_method"])
+        self.assertEqual("isolated-pixel-neighborhood", result.reconstruction["artifact_cleanup"])
+        self.assertIn("isolated_pixels_replaced", result.reconstruction)
+
+    def test_auto_does_not_select_ai_pixel_v2(self) -> None:
+        image = Image.open(ROOT / "tests" / "fixtures" / "test-ai-2.png")
+        image.thumbnail((256, 256))
+
+        result = process_image(image, RestoreSettings(algorithm="auto", scale_mode="auto", min_scale=1, max_scale=16))
+
+        self.assertNotEqual("ai-pixel-v2", result.algorithm_used)
+
     def _make_synthetic_pixel_art(self) -> np.ndarray:
         image = np.full((12, 14, 3), [186, 204, 142], dtype=np.uint8)
         image[2:10, 3:11] = [40, 36, 55]

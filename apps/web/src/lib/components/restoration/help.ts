@@ -5,8 +5,8 @@ const helpItems: HelpText[] = [
 		id: 'algorithm-help',
 		label: 'Algorithm',
 		description: 'Selects the restoration pipeline used for the image.',
-		impact: 'Fast integer is the stable default. Smart auto uses preflight analysis. Noisy pixel uses cluster-based reconstruction for JPEG and AI artifacts.',
-		example: 'Use Fast integer for clean PNG upscales; use Smart auto or Noisy pixel for JPEG or AI-generated pixel art.'
+		impact: 'Fast integer is the stable default. Smart auto uses preflight analysis. Noisy pixel handles JPEG artifacts. AI pixel v2 is explicit-only for rough AI pixel art.',
+		example: 'Use Fast integer for clean PNG upscales; use Smart auto or Noisy pixel for JPEG; choose AI pixel v2 manually for AI-generated pixel art.'
 	},
 	{
 		id: 'scale-mode-help',

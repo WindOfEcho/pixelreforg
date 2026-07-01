@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.8] - 2026-07-01
+
+### Added
+
+- Explicit `ai-pixel-v2` restoration algorithm for rough AI-generated pixel art.
+- New Core `ai_pixel.py` module with resampled grid, dominant-color-cluster aggregation, and isolated-pixel neighborhood cleanup.
+- Web algorithm selector option `AI pixel v2`; Smart auto does not select it yet.
+- API accepts `algorithm=ai-pixel-v2` through the existing job creation contract.
+- Regression tests for explicit Core/API `ai-pixel-v2` processing and for ensuring auto mode does not select it.
+
+### Changed
+
+- Fractional scale detection is enabled for explicit `ai-pixel-v2` jobs.
+- Reconstruction metadata now records `artifact_cleanup` and `isolated_pixels_replaced` for `ai-pixel-v2`.
+
 ## [0.0.7] - 2026-07-01
 
 ### Added

@@ -31,7 +31,7 @@ def detect_scale(image_array: np.ndarray, settings: RestoreSettings) -> ScaleEst
     horizontal_signal = _boundary_signal(image_array, axis="x")
     vertical_signal = _boundary_signal(image_array, axis="y")
 
-    if settings.algorithm in ("resampled-grid-v2", "noisy-pixel-v1"):
+    if settings.algorithm in ("resampled-grid-v2", "noisy-pixel-v1", "ai-pixel-v2"):
         scale_x, confidence_x = _best_fractional_scale(horizontal_signal, width, settings.min_scale, max_scale_x, settings.fractional_scale_step)
         scale_y, confidence_y = _best_fractional_scale(vertical_signal, height, settings.min_scale, max_scale_y, settings.fractional_scale_step)
         return ScaleEstimate(scale_x, scale_y, confidence_x, confidence_y, "fractional-boundary-energy")

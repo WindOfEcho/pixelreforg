@@ -155,7 +155,7 @@
 	}
 
 	function currentSettings(): RestoreSettings {
-		const resolvedScaleMode = algorithm === 'integer-grid-v1' || algorithm === 'resampled-grid-v2' || algorithm === 'noisy-pixel-v1' ? scaleMode : 'auto';
+		const resolvedScaleMode = algorithm === 'integer-grid-v1' || algorithm === 'resampled-grid-v2' || algorithm === 'noisy-pixel-v1' || algorithm === 'ai-pixel-v2' ? scaleMode : 'auto';
 		return {
 			algorithm,
 			scaleMode: resolvedScaleMode,

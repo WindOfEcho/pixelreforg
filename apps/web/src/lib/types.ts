@@ -1,6 +1,6 @@
 export type JobStatus = 'queued' | 'processing' | 'completed' | 'failed' | 'cancelled';
 export type ScaleMode = 'auto' | 'manual';
-export type RestoreAlgorithm = 'auto' | 'integer-grid-v1' | 'resampled-grid-v2' | 'noisy-pixel-v1';
+export type RestoreAlgorithm = 'auto' | 'integer-grid-v1' | 'resampled-grid-v2' | 'noisy-pixel-v1' | 'ai-pixel-v2';
 export type PaletteCleanupMode = 'off' | 'light' | 'medium' | 'strong' | 'custom';
 
 export type RestoreSettings = {

@@ -205,6 +205,26 @@ def test_explicit_noisy_pixel_algorithm_processes_fixture(client: TestClient) ->
     assert metadata["palette"]["cleanup_applied"] is True
 
 
+def test_explicit_ai_pixel_v2_algorithm_processes_fixture(client: TestClient) -> None:
+    fixture_path = ROOT / "tests" / "fixtures" / "test-ai-2.png"
+
+    with fixture_path.open("rb") as image_file:
+        create_response = client.post(
+            "/api/jobs?algorithm=ai-pixel-v2&scale_mode=manual&scale=2&palette_cleanup=off",
+            files={"file": ("test-ai-2.png", image_file, "image/png")},
+        )
+
+    assert create_response.status_code == 202
+    job_id = create_response.json()["job_id"]
+
+    metadata = client.get(f"/api/jobs/{job_id}").json()
+    assert metadata["status"] == "completed"
+    assert metadata["algorithm_requested"] == "ai-pixel-v2"
+    assert metadata["algorithm_used"] == "ai-pixel-v2"
+    assert metadata["reconstruction"]["resize_method"] == "ai-pixel-v2-resampled-cluster"
+    assert metadata["reconstruction"]["artifact_cleanup"] == "isolated-pixel-neighborhood"
+
+
 def test_processing_failure_is_logged_with_job_id(client: TestClient, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
     fixture_path = ROOT / "tests" / "fixtures" / "test-jpegs-x4-90.jpg"
 
