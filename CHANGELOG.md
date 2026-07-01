@@ -9,23 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- `resampled-grid-v2` fractional restoration algorithm with sub-pixel grid sampling and dominant-color-cluster aggregation for float scale factors.
-- Float manual scale mode — user can enter arbitrary non-integer scale factors (e.g. `1.5`, `2.25`) to upscale pixel art at non-integer ratios.
-- Original size override now correctly applies target size from the nearest grid-resampled dimensions instead of forcing integer-only output.
-- `noisy-pixel-v1` algorithm extended to support fractional grid restoration using dominant-color cluster aggregation, matching `resampled-grid-v2` quality for JPEG/AI artifacts.
-- API and Web fractional settings: slider (`step=0.25`, range `1.0`–`8.0`) combined with numeric text input for precise float scale entry.
+- `resampled-grid-v2` fractional restoration algorithm with resampled grid aggregation for float scale factors.
+- Float manual scale mode — user can enter non-integer scale factors (e.g. `1.5`, `2.25`, `3.59375`) for non-integer pixel-art upscales.
+- Original size override now applies the requested target size instead of being stored as a reserved setting.
+- `noisy-pixel-v1` algorithm extended to support fractional grid restoration using dominant-color-cluster aggregation for JPEG/AI artifacts.
+- API and Web fractional settings: slider (`step=0.25`, range `1.0`–`16.0`) combined with numeric input for precise float scale entry.
 - `fractional_scale_step` query parameter in API job creation endpoint.
-- Regression test fixtures for fractional scale restoration (`test-float-restore-1.png`, `test-float-restore-2.png`) with dedicated `test_restore_float_scale` tests.
+- Regression coverage for existing fractional scale fixtures (`test-x3.6.png`, `test-x6.3.png`).
 
 ### Changed
 
-- `pipeline.process_image` resolves `resampled-grid-v2` for float scales and falls back to `fast-integer` for integer scales; both noisy-pixel variants now accept float grid settings.
-- `scale_detection.py` float scale parsing — manual scale input accepts `float` type natively with proper validation in `models.py`.
-- `resize.py` — new `resample_grid_v2` function implementing sub-pixel grid sampling with dominant-color aggregation per grid cell.
+- `pipeline.process_image` resolves explicit `resampled-grid-v2`; `noisy-pixel-v1` now switches to fractional grid aggregation when scale is non-integer.
+- `scale_detection.py` supports original-size override and bounded fractional scale candidates for `resampled-grid-v2` and `noisy-pixel-v1`.
+- `resize.py` — new `downscale_by_resampled_grid` function implementing resampled grid aggregation per output cell.
 - `original_width`/`original_height` override now always applied when provided, regardless of scale type.
-- Web `SettingsPanel.svelte` — scale mode selector extended with float option; slider linked to numeric input for fractional scale.
-- `api.ts` — passes `fractional_scale_step` to API; `types.ts` — added `fractional_scale_step` field to job creation payload.
-- `help.ts` — added tooltip text for float scale and fractional grid settings.
+- Web `SettingsPanel.svelte` — `Resampled v2` is selectable; manual scale has both slider and numeric input; original size remains in Advanced.
+- `api.ts` — passes `fractional_scale_step` to API; `types.ts` — added `fractionalScaleStep` field to job creation payload.
+- `help.ts` — added tooltip text for fractional scale and fractional grid settings.
 
 ## [0.0.5] - 2026-07-01
 
