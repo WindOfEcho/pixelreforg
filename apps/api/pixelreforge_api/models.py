@@ -21,8 +21,8 @@ class JobMetadata(BaseModel):
     source_size: tuple[int, int] | None = None
     target_size: tuple[int, int] | None = None
     original_size_override: tuple[int, int] | None = None
-    scale_x: int | None = None
-    scale_y: int | None = None
+    scale_x: float | None = None
+    scale_y: float | None = None
     scale_method: str | None = None
     confidence: float | None = None
     palette_cleanup: str | None = None

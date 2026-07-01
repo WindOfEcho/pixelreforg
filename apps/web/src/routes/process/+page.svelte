@@ -31,6 +31,7 @@
 	let paletteMergeDistance = $state(18);
 	let paletteTargetColors = $state<number | undefined>();
 	let noisyColorBucketSize = $state(16);
+	let fractionalScaleStep = $state(0.25);
 	let statusMessage = $state('Drop a pixel art image to start.');
 	let errorMessage = $state<string | null>(null);
 	let warningMessage = $state<string | null>(null);
@@ -154,7 +155,7 @@
 	}
 
 	function currentSettings(): RestoreSettings {
-		const resolvedScaleMode = algorithm === 'integer-grid-v1' || algorithm === 'noisy-pixel-v1' ? scaleMode : 'auto';
+		const resolvedScaleMode = algorithm === 'integer-grid-v1' || algorithm === 'resampled-grid-v2' || algorithm === 'noisy-pixel-v1' ? scaleMode : 'auto';
 		return {
 			algorithm,
 			scaleMode: resolvedScaleMode,
@@ -167,7 +168,8 @@
 			paletteMergeDistance,
 			paletteTargetColors,
 			noisyColorBucketSize,
-			confidenceThreshold
+			confidenceThreshold,
+			fractionalScaleStep
 		};
 	}
 
@@ -250,6 +252,7 @@
 			bind:paletteMergeDistance
 			bind:paletteTargetColors
 			bind:noisyColorBucketSize
+			bind:fractionalScaleStep
 			{selectedFile}
 			{isProcessing}
 			{isCancelling}

@@ -94,7 +94,7 @@ def create_app() -> FastAPI:
         file: UploadFile = File(...),
         algorithm: RestoreAlgorithm = Query(default="auto"),
         scale_mode: ScaleMode = Query(default="manual"),
-        scale: int | None = Query(default=4, ge=2, le=16),
+        scale: float | None = Query(default=4, ge=1.0, le=64.0),
         min_scale: int = Query(default=2, ge=1, le=64),
         max_scale: int = Query(default=16, ge=1, le=64),
         original_width: int | None = Query(default=None, ge=1),
@@ -104,6 +104,7 @@ def create_app() -> FastAPI:
         palette_target_colors: int | None = Query(default=None, ge=1, le=256),
         noisy_color_bucket_size: int = Query(default=16, ge=2, le=64),
         confidence_threshold: float = Query(default=0.45, ge=0.0, le=1.0),
+        fractional_scale_step: float = Query(default=0.25, ge=0.05, le=1.0),
     ) -> JobCreateResponse:
         if file.content_type is not None and not file.content_type.startswith("image/"):
             raise HTTPException(status_code=415, detail="Only image uploads are supported.")
@@ -128,6 +129,7 @@ def create_app() -> FastAPI:
             palette_target_colors,
             noisy_color_bucket_size,
             confidence_threshold,
+            fractional_scale_step,
             get_request_id(),
         )
         return JobCreateResponse(

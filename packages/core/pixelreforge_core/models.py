@@ -15,8 +15,8 @@ class RestoreSettings:
     scale_mode: ScaleMode = "auto"
     max_scale: int = 16
     min_scale: int = 2
-    manual_scale_x: int | None = None
-    manual_scale_y: int | None = None
+    manual_scale_x: float | None = None
+    manual_scale_y: float | None = None
     original_width: int | None = None
     original_height: int | None = None
     palette_cleanup: PaletteCleanupMode = "off"
@@ -24,12 +24,13 @@ class RestoreSettings:
     palette_target_colors: int | None = None
     noisy_color_bucket_size: int = 16
     confidence_threshold: float = 0.45
+    fractional_scale_step: float = 0.25
 
 
 @dataclass(frozen=True)
 class ScaleEstimate:
-    scale_x: int
-    scale_y: int
+    scale_x: float
+    scale_y: float
     confidence_x: float
     confidence_y: float
     method: str

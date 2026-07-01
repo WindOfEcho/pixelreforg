@@ -98,6 +98,60 @@ class CoreRestoreTests(unittest.TestCase):
         self.assertEqual(4, result.scale.scale_x)
         self.assertEqual(4, result.scale.scale_y)
 
+    def test_resampled_grid_manual_fractional_scale_restores_fixture(self) -> None:
+        original = Image.open(ROOT / "tests" / "fixtures" / "test-original.png").convert("RGBA")
+        expected = np.asarray(original)
+
+        for fixture_name in ("test-x3.6.png", "test-x6.3.png"):
+            with self.subTest(fixture=fixture_name):
+                image = Image.open(ROOT / "tests" / "fixtures" / fixture_name)
+                scale = image.size[0] / original.size[0]
+                result = process_image(
+                    image,
+                    RestoreSettings(
+                        algorithm="resampled-grid-v2",
+                        scale_mode="manual",
+                        manual_scale_x=scale,
+                        manual_scale_y=scale,
+                    ),
+                )
+
+                self.assertEqual("resampled-grid-v2", result.algorithm_used)
+                self.assertEqual((32, 32), result.target_size)
+                self.assertAlmostEqual(scale, result.scale.scale_x)
+                np.testing.assert_array_equal(expected, np.asarray(result.image.convert("RGBA")))
+
+    def test_resampled_grid_original_size_override_restores_fractional_fixture(self) -> None:
+        image = Image.open(ROOT / "tests" / "fixtures" / "test-x3.6.png")
+
+        result = process_image(
+            image,
+            RestoreSettings(algorithm="resampled-grid-v2", original_width=32, original_height=32),
+        )
+
+        self.assertEqual((32, 32), result.target_size)
+        self.assertEqual((32, 32), result.original_size_override)
+        self.assertEqual("original-size-override", result.scale.method)
+        self.assertAlmostEqual(image.size[0] / 32, result.scale.scale_x)
+
+    def test_noisy_pixel_manual_fractional_scale_uses_resampled_cluster_grid(self) -> None:
+        image = Image.open(ROOT / "tests" / "fixtures" / "test-x3.6.png")
+        scale = image.size[0] / 32
+
+        result = process_image(
+            image,
+            RestoreSettings(
+                algorithm="noisy-pixel-v1",
+                scale_mode="manual",
+                manual_scale_x=scale,
+                manual_scale_y=scale,
+            ),
+        )
+
+        self.assertEqual("noisy-pixel-v1", result.algorithm_used)
+        self.assertEqual((32, 32), result.target_size)
+        self.assertEqual("resampled-grid-dominant-color-cluster", result.reconstruction["resize_method"])
+
     def _make_synthetic_pixel_art(self) -> np.ndarray:
         image = np.full((12, 14, 3), [186, 204, 142], dtype=np.uint8)
         image[2:10, 3:11] = [40, 36, 55]

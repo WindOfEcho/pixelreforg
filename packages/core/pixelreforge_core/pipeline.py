@@ -7,7 +7,7 @@ from .image_io import load_image
 from .models import ProcessingResult, RestoreSettings
 from .palette import restore_palette
 from .preflight import analyze_image
-from .resize import downscale_by_dominant_color_cluster, downscale_by_majority_vote
+from .resize import downscale_by_dominant_color_cluster, downscale_by_majority_vote, downscale_by_resampled_grid
 from .scale_detection import detect_scale
 
 
@@ -31,16 +31,31 @@ def process_image(image: Image.Image, settings: RestoreSettings | None = None) -
     if scale.confidence < settings.confidence_threshold:
         warnings.append("Low confidence scale detection; use manual scale override if the result looks wrong.")
 
-    resize_method = "dominant-color-cluster" if algorithm_used == "noisy-pixel-v1" else "majority-vote"
-    if resize_method == "dominant-color-cluster":
+    if algorithm_used == "resampled-grid-v2":
+        resize_method = "resampled-grid-majority"
+        target_width, target_height = _target_size_from_scale(source_size, scale.scale_x, scale.scale_y)
+        restored = downscale_by_resampled_grid(image_array, target_width, target_height)
+    elif algorithm_used == "noisy-pixel-v1" and _uses_fractional_grid(scale.scale_x, scale.scale_y):
+        resize_method = "resampled-grid-dominant-color-cluster"
+        target_width, target_height = _target_size_from_scale(source_size, scale.scale_x, scale.scale_y)
+        restored = downscale_by_resampled_grid(
+            image_array,
+            target_width,
+            target_height,
+            aggregation="dominant-color-cluster",
+            bucket_size=settings.noisy_color_bucket_size,
+        )
+    elif algorithm_used == "noisy-pixel-v1":
+        resize_method = "dominant-color-cluster"
         restored = downscale_by_dominant_color_cluster(
             image_array,
-            scale.scale_x,
-            scale.scale_y,
+            int(round(scale.scale_x)),
+            int(round(scale.scale_y)),
             settings.noisy_color_bucket_size,
         )
     else:
-        restored = downscale_by_majority_vote(image_array, scale.scale_x, scale.scale_y)
+        resize_method = "majority-vote"
+        restored = downscale_by_majority_vote(image_array, int(round(scale.scale_x)), int(round(scale.scale_y)))
     palette_result = restore_palette(
         restored,
         settings.palette_cleanup,
@@ -55,7 +70,6 @@ def process_image(image: Image.Image, settings: RestoreSettings | None = None) -
             warnings.append("Original size override requires both width and height; it was ignored.")
         else:
             original_size_override = (settings.original_width, settings.original_height)
-            warnings.append("Original size override is reserved for the next algorithms and was not applied.")
 
     return ProcessingResult(
         image=restored,
@@ -70,7 +84,11 @@ def process_image(image: Image.Image, settings: RestoreSettings | None = None) -
         analysis=preflight.to_metadata()
         | {"algorithm_selection": {"requested": settings.algorithm, "used": algorithm_used}},
         palette=palette_result.metadata,
-        reconstruction={"resize_method": resize_method, "noisy_color_bucket_size": settings.noisy_color_bucket_size},
+        reconstruction={
+            "resize_method": resize_method,
+            "noisy_color_bucket_size": settings.noisy_color_bucket_size,
+            "fractional_scale_step": settings.fractional_scale_step,
+        },
         warnings=tuple(warnings),
     )
 
@@ -84,8 +102,21 @@ def _resolve_algorithm(settings: RestoreSettings, recommended_algorithm: str) ->
         return "integer-grid-v1"
     if settings.algorithm == "noisy-pixel-v1":
         return "noisy-pixel-v1"
+    if settings.algorithm == "resampled-grid-v2":
+        return "resampled-grid-v2"
     if settings.algorithm == "auto":
-        if recommended_algorithm in ("integer-grid-v1", "noisy-pixel-v1"):
+        if recommended_algorithm in ("integer-grid-v1", "resampled-grid-v2", "noisy-pixel-v1"):
             return recommended_algorithm
         return "integer-grid-v1"
     raise NotImplementedError(f"Restore algorithm is not implemented yet: {settings.algorithm}")
+
+
+def _target_size_from_scale(source_size: tuple[int, int], scale_x: float, scale_y: float) -> tuple[int, int]:
+    width, height = source_size
+    target_width = max(1, int(round(width / scale_x)))
+    target_height = max(1, int(round(height / scale_y)))
+    return target_width, target_height
+
+
+def _uses_fractional_grid(scale_x: float, scale_y: float) -> bool:
+    return abs(scale_x - round(scale_x)) > 1e-6 or abs(scale_y - round(scale_y)) > 1e-6

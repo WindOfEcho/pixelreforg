@@ -22,7 +22,7 @@ def process_job(
     job_id: str,
     algorithm: str = "auto",
     scale_mode: str = "manual",
-    manual_scale: int | None = 4,
+    manual_scale: float | None = 4,
     min_scale: int = 2,
     max_scale: int = 16,
     original_width: int | None = None,
@@ -32,6 +32,7 @@ def process_job(
     palette_target_colors: int | None = None,
     noisy_color_bucket_size: int = 16,
     confidence_threshold: float = 0.45,
+    fractional_scale_step: float = 0.25,
     request_id: str | None = None,
 ) -> None:
     token = set_request_id(request_id) if request_id is not None else None
@@ -68,6 +69,7 @@ def process_job(
             palette_target_colors=palette_target_colors,
             noisy_color_bucket_size=noisy_color_bucket_size,
             confidence_threshold=confidence_threshold,
+            fractional_scale_step=fractional_scale_step,
         )
         result = process_image_file(input_path, settings)
         latest_metadata = read_metadata(job_id)

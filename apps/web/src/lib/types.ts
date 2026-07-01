@@ -16,6 +16,7 @@ export type RestoreSettings = {
 	paletteTargetColors?: number;
 	noisyColorBucketSize: number;
 	confidenceThreshold: number;
+	fractionalScaleStep: number;
 };
 
 export type JobCreateResponse = {

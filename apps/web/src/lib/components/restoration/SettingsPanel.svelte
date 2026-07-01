@@ -18,6 +18,7 @@
 		paletteMergeDistance = $bindable(18),
 		paletteTargetColors = $bindable<number | undefined>(),
 		noisyColorBucketSize = $bindable(16),
+		fractionalScaleStep = $bindable(0.25),
 		selectedFile,
 		isProcessing,
 		isCancelling,
@@ -39,6 +40,7 @@
 		paletteMergeDistance: number;
 		paletteTargetColors: number | undefined;
 		noisyColorBucketSize: number;
+		fractionalScaleStep: number;
 		selectedFile: File | null;
 		isProcessing: boolean;
 		isCancelling: boolean;
@@ -55,8 +57,12 @@
 			: 'border-[var(--color-border)] bg-[rgba(47,38,48,0.52)] text-[var(--color-text-muted)]';
 	}
 
-	function disabledModeClass() {
-		return 'cursor-not-allowed border-[var(--color-border)] bg-[rgba(47,38,48,0.32)] text-[var(--color-text-soft)] opacity-65';
+	function supportsScaleControls(value: RestoreAlgorithm) {
+		return value === 'integer-grid-v1' || value === 'resampled-grid-v2' || value === 'noisy-pixel-v1';
+	}
+
+	function supportsFractionalControls(value: RestoreAlgorithm) {
+		return value === 'resampled-grid-v2' || value === 'noisy-pixel-v1';
 	}
 </script>
 
@@ -82,9 +88,9 @@
 					<span class="flex items-center gap-2"><input type="radio" bind:group={algorithm} value="integer-grid-v1" disabled={isProcessing} /> Fast integer</span>
 					<small class="readable-copy text-sm text-[var(--color-text-muted)]">For clean pixel art.</small>
 				</label>
-				<label class={[disabledModeClass(), 'flex min-h-12 flex-col justify-center gap-1 rounded-2xl border px-4 py-3 text-xl']}>
-					<span class="flex items-center gap-2"><input type="radio" value="resampled-grid-v2" disabled /> Resampled v2</span>
-					<small class="readable-copy text-sm text-[var(--color-text-muted)]">Planned for fractional scale and original size.</small>
+				<label class={[modeClass(algorithm === 'resampled-grid-v2'), 'flex min-h-12 cursor-pointer flex-col justify-center gap-1 rounded-2xl border px-4 py-3 text-xl']}>
+					<span class="flex items-center gap-2"><input type="radio" bind:group={algorithm} value="resampled-grid-v2" disabled={isProcessing} /> Resampled v2</span>
+					<small class="readable-copy text-sm text-[var(--color-text-muted)]">For fractional scale and known original size.</small>
 				</label>
 				<label class={[modeClass(algorithm === 'noisy-pixel-v1'), 'flex min-h-12 cursor-pointer flex-col justify-center gap-1 rounded-2xl border px-4 py-3 text-xl']}>
 					<span class="flex items-center gap-2"><input type="radio" bind:group={algorithm} value="noisy-pixel-v1" disabled={isProcessing} /> Noisy pixel</span>
@@ -99,7 +105,11 @@
 			</p>
 		{:else if algorithm === 'noisy-pixel-v1'}
 			<p class="readable-copy m-0 leading-7 text-[var(--color-text-muted)]">
-				Noisy pixel uses cluster-based reconstruction for JPEG and AI color artifacts. Palette cleanup remains a separate setting.
+				Noisy pixel uses cluster-based reconstruction for JPEG and AI color artifacts. It can also use fractional manual scale or original size.
+			</p>
+		{:else if algorithm === 'resampled-grid-v2'}
+			<p class="readable-copy m-0 leading-7 text-[var(--color-text-muted)]">
+				Resampled v2 restores non-integer upscales. Use manual scale or Advanced original size for best quality.
 			</p>
 		{/if}
 
@@ -114,7 +124,7 @@
 			</label>
 		{/if}
 
-		{#if algorithm === 'integer-grid-v1' || algorithm === 'noisy-pixel-v1'}
+		{#if supportsScaleControls(algorithm)}
 			<div class="grid gap-2">
 				<div class="readable-copy flex items-center gap-2 text-sm font-medium leading-5 tracking-normal text-[var(--color-text)]">
 					<span>Scale mode</span>
@@ -138,8 +148,11 @@
 						<span>Manual scale</span>
 						<HelpButton help={helpFor('manual-scale-help')} />
 					</div>
-					<Slider min={2} max={16} step={1} bind:value={manualScale} disabled={isProcessing} />
-					<strong class="text-2xl text-[var(--color-accent-strong)]">{manualScale}x</strong>
+					<Slider min={1} max={16} step={supportsFractionalControls(algorithm) ? 0.25 : 1} bind:value={manualScale} disabled={isProcessing} />
+					<div class="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+						<input class="min-h-11 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-strong)] px-3 text-2xl text-[var(--color-text)]" type="number" min="1" max="64" step={supportsFractionalControls(algorithm) ? 0.01 : 1} bind:value={manualScale} disabled={isProcessing} />
+						<strong class="text-2xl text-[var(--color-accent-strong)]">x</strong>
+					</div>
 				</label>
 			{:else}
 				<p class="readable-copy m-0 leading-7 text-[var(--color-text-muted)]">
@@ -184,7 +197,7 @@
 		{/if}
 	</div>
 
-		{#if algorithm === 'integer-grid-v1' || algorithm === 'noisy-pixel-v1'}
+		{#if supportsScaleControls(algorithm)}
 	<details class="mt-4 rounded-[1.35rem] bg-[var(--color-surface-soft)] p-5">
 		<summary class="cursor-pointer text-2xl font-black uppercase tracking-[0.14em]">Advanced</summary>
 
@@ -214,22 +227,33 @@
 			<strong class="text-2xl text-[var(--color-accent-strong)]">{confidenceThreshold.toFixed(2)}</strong>
 		</label>
 
-		<div class="mt-4 grid grid-cols-1 gap-4 opacity-80 sm:grid-cols-2" aria-label="Original size override planned for next algorithm">
+		{#if supportsFractionalControls(algorithm)}
+		<div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2" aria-label="Original size override">
 			<label class="grid gap-2">
 				<div class="readable-copy flex items-center gap-2 text-sm font-medium leading-5 tracking-normal text-[var(--color-text)]">
 					<span>Original width</span>
 					<HelpButton help={helpFor('original-size-help')} />
 				</div>
-				<input class="min-h-11 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-strong)] px-3 text-2xl text-[var(--color-text)] disabled:opacity-55" type="number" min="1" bind:value={originalWidth} disabled placeholder="v2" />
+				<input class="min-h-11 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-strong)] px-3 text-2xl text-[var(--color-text)] disabled:opacity-55" type="number" min="1" bind:value={originalWidth} disabled={isProcessing} placeholder="optional" />
 			</label>
 			<label class="grid gap-2">
 				<div class="readable-copy flex items-center gap-2 text-sm font-medium leading-5 tracking-normal text-[var(--color-text)]">
 					<span>Original height</span>
 					<HelpButton help={helpFor('original-size-help')} />
 				</div>
-				<input class="min-h-11 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-strong)] px-3 text-2xl text-[var(--color-text)] disabled:opacity-55" type="number" min="1" bind:value={originalHeight} disabled placeholder="v2" />
+				<input class="min-h-11 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-strong)] px-3 text-2xl text-[var(--color-text)] disabled:opacity-55" type="number" min="1" bind:value={originalHeight} disabled={isProcessing} placeholder="optional" />
 			</label>
 		</div>
+
+		<label class="mt-4 grid gap-2">
+			<div class="readable-copy flex items-center gap-2 text-sm font-medium leading-5 tracking-normal text-[var(--color-text)]">
+				<span>Fractional step</span>
+				<HelpButton help={helpFor('fractional-step-help')} />
+			</div>
+			<Slider min={0.05} max={1} step={0.05} bind:value={fractionalScaleStep} disabled={isProcessing} />
+			<strong class="text-2xl text-[var(--color-accent-strong)]">{fractionalScaleStep.toFixed(2)}</strong>
+		</label>
+		{/if}
 	</details>
 	{/if}
 

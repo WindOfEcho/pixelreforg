@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.6] - 2026-07-01
+
+### Added
+
+- `resampled-grid-v2` fractional restoration algorithm with sub-pixel grid sampling and dominant-color-cluster aggregation for float scale factors.
+- Float manual scale mode — user can enter arbitrary non-integer scale factors (e.g. `1.5`, `2.25`) to upscale pixel art at non-integer ratios.
+- Original size override now correctly applies target size from the nearest grid-resampled dimensions instead of forcing integer-only output.
+- `noisy-pixel-v1` algorithm extended to support fractional grid restoration using dominant-color cluster aggregation, matching `resampled-grid-v2` quality for JPEG/AI artifacts.
+- API and Web fractional settings: slider (`step=0.25`, range `1.0`–`8.0`) combined with numeric text input for precise float scale entry.
+- `fractional_scale_step` query parameter in API job creation endpoint.
+- Regression test fixtures for fractional scale restoration (`test-float-restore-1.png`, `test-float-restore-2.png`) with dedicated `test_restore_float_scale` tests.
+
+### Changed
+
+- `pipeline.process_image` resolves `resampled-grid-v2` for float scales and falls back to `fast-integer` for integer scales; both noisy-pixel variants now accept float grid settings.
+- `scale_detection.py` float scale parsing — manual scale input accepts `float` type natively with proper validation in `models.py`.
+- `resize.py` — new `resample_grid_v2` function implementing sub-pixel grid sampling with dominant-color aggregation per grid cell.
+- `original_width`/`original_height` override now always applied when provided, regardless of scale type.
+- Web `SettingsPanel.svelte` — scale mode selector extended with float option; slider linked to numeric input for fractional scale.
+- `api.ts` — passes `fractional_scale_step` to API; `types.ts` — added `fractional_scale_step` field to job creation payload.
+- `help.ts` — added tooltip text for float scale and fractional grid settings.
+
 ## [0.0.5] - 2026-07-01
 
 ### Added

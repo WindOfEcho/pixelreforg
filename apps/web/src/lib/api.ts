@@ -13,7 +13,8 @@ export async function createJob(file: File, settings: RestoreSettings): Promise<
 		min_scale: String(validNumber(settings.minScale, 2)),
 		max_scale: String(validNumber(settings.maxScale, 16)),
 		palette_cleanup: settings.paletteCleanup,
-		confidence_threshold: String(validNumber(settings.confidenceThreshold, 0.45))
+		confidence_threshold: String(validNumber(settings.confidenceThreshold, 0.45)),
+		fractional_scale_step: String(validNumber(settings.fractionalScaleStep, 0.25))
 	});
 
 	if (settings.scaleMode === 'manual' && isValidNumber(settings.manualScale)) {
