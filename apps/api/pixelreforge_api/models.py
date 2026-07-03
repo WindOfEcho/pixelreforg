@@ -12,6 +12,9 @@ PaletteCleanupMode = Literal["off", "light", "medium", "strong", "custom"]
 class JobMetadata(BaseModel):
     job_id: str
     status: JobStatus
+    progress_percent: float = Field(default=0.0, ge=0.0, le=100.0)
+    stage: str | None = None
+    stage_message: str | None = None
     input_filename: str
     input_path: str
     output_path: str | None = None

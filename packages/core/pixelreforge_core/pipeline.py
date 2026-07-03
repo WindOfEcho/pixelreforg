@@ -6,15 +6,22 @@ import numpy as np
 
 from .ai_pixel import restore_ai_pixel_art
 from .image_io import load_image
-from .models import ProcessingResult, RestoreSettings, ScaleEstimate
+from .models import CancelCallback, ProcessingCancelled, ProcessingResult, ProgressCallback, RestoreSettings, ScaleEstimate
 from .palette import restore_palette
 from .preflight import PreflightAnalysis, analyze_image
 from .resize import downscale_by_dominant_color_cluster, downscale_by_majority_vote, downscale_by_resampled_grid
 from .scale_detection import detect_scale
 
 
-def process_image(image: Image.Image, settings: RestoreSettings | None = None) -> ProcessingResult:
+def process_image(
+    image: Image.Image,
+    settings: RestoreSettings | None = None,
+    progress: ProgressCallback | None = None,
+    cancel: CancelCallback | None = None,
+) -> ProcessingResult:
     settings = settings or RestoreSettings()
+    _report_progress(progress, "preflight", 10.0, "Preflight analysis...")
+    _raise_if_cancelled(cancel)
     source_format = image.format
     if image.mode not in ("RGB", "RGBA"):
         image = image.convert("RGBA" if "A" in image.getbands() else "RGB")
@@ -22,6 +29,8 @@ def process_image(image: Image.Image, settings: RestoreSettings | None = None) -
     source_size = image.size
     image_array = np.asarray(image)
     scale, preflight, algorithm_used, detection_metadata = _select_scale_and_algorithm(image_array, source_format, settings)
+    _report_progress(progress, "grid_recovery", 35.0, "Grid recovery...")
+    _raise_if_cancelled(cancel)
 
     warnings: list[str] = []
     if settings.algorithm == "auto" and algorithm_used != preflight.recommended_algorithm and algorithm_used != "resampled-grid-v2":
@@ -31,14 +40,16 @@ def process_image(image: Image.Image, settings: RestoreSettings | None = None) -
     if scale.confidence < settings.confidence_threshold:
         warnings.append("Low confidence scale detection; use manual scale override if the result looks wrong.")
 
+    _report_progress(progress, "image_reconstruction", 45.0, "Image reconstruction...")
+    _raise_if_cancelled(cancel)
     if algorithm_used == "resampled-grid-v2":
         resize_method = "resampled-grid-majority"
         target_width, target_height = _target_size_from_scale(source_size, scale.scale_x, scale.scale_y)
-        restored = downscale_by_resampled_grid(image_array, target_width, target_height)
+        restored = downscale_by_resampled_grid(image_array, target_width, target_height, cancel=cancel)
     elif algorithm_used == "ai-pixel-v2":
         resize_method = "ai-pixel-v2-resampled-cluster"
         target_width, target_height = _target_size_from_scale(source_size, scale.scale_x, scale.scale_y)
-        ai_result = restore_ai_pixel_art(image_array, target_width, target_height, settings.noisy_color_bucket_size)
+        ai_result = restore_ai_pixel_art(image_array, target_width, target_height, settings.noisy_color_bucket_size, cancel=cancel)
         restored = ai_result.image
     elif algorithm_used == "noisy-pixel-v1" and _uses_fractional_grid(scale.scale_x, scale.scale_y):
         resize_method = "resampled-grid-dominant-color-cluster"
@@ -49,6 +60,7 @@ def process_image(image: Image.Image, settings: RestoreSettings | None = None) -
             target_height,
             aggregation="dominant-color-cluster",
             bucket_size=settings.noisy_color_bucket_size,
+            cancel=cancel,
         )
     elif algorithm_used == "noisy-pixel-v1":
         resize_method = "dominant-color-cluster"
@@ -57,16 +69,21 @@ def process_image(image: Image.Image, settings: RestoreSettings | None = None) -
             int(round(scale.scale_x)),
             int(round(scale.scale_y)),
             settings.noisy_color_bucket_size,
+            cancel=cancel,
         )
     else:
         resize_method = "majority-vote"
-        restored = downscale_by_majority_vote(image_array, int(round(scale.scale_x)), int(round(scale.scale_y)))
+        restored = downscale_by_majority_vote(image_array, int(round(scale.scale_x)), int(round(scale.scale_y)), cancel=cancel)
+    _report_progress(progress, "palette_cleanup", 75.0, "Palette analysis and cleanup...")
+    _raise_if_cancelled(cancel)
     palette_result = restore_palette(
         restored,
         settings.palette_cleanup,
         merge_distance=settings.palette_merge_distance,
         target_colors=settings.palette_target_colors,
     )
+    _report_progress(progress, "image_reconstruction", 90.0, "Finalizing reconstruction...")
+    _raise_if_cancelled(cancel)
     restored = palette_result.image
     warnings.extend(palette_result.warnings)
     original_size_override = None
@@ -102,8 +119,23 @@ def process_image(image: Image.Image, settings: RestoreSettings | None = None) -
     )
 
 
-def process_image_file(path: str | Path, settings: RestoreSettings | None = None) -> ProcessingResult:
-    return process_image(load_image(path), settings)
+def process_image_file(
+    path: str | Path,
+    settings: RestoreSettings | None = None,
+    progress: ProgressCallback | None = None,
+    cancel: CancelCallback | None = None,
+) -> ProcessingResult:
+    return process_image(load_image(path), settings, progress=progress, cancel=cancel)
+
+
+def _report_progress(progress: ProgressCallback | None, stage: str, percent: float, message: str) -> None:
+    if progress is not None:
+        progress(stage, percent, message)
+
+
+def _raise_if_cancelled(cancel: CancelCallback | None) -> None:
+    if cancel is not None and cancel():
+        raise ProcessingCancelled("Processing was cancelled.")
 
 
 def _resolve_algorithm(settings: RestoreSettings, recommended_algorithm: str) -> str:
@@ -116,7 +148,7 @@ def _resolve_algorithm(settings: RestoreSettings, recommended_algorithm: str) ->
     if settings.algorithm == "ai-pixel-v2":
         return "ai-pixel-v2"
     if settings.algorithm == "auto":
-        if recommended_algorithm in ("integer-grid-v1", "resampled-grid-v2", "noisy-pixel-v1"):
+        if recommended_algorithm in ("integer-grid-v1", "resampled-grid-v2", "noisy-pixel-v1", "ai-pixel-v2"):
             return recommended_algorithm
         return "integer-grid-v1"
     raise NotImplementedError(f"Restore algorithm is not implemented yet: {settings.algorithm}")

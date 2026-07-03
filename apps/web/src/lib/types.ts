@@ -29,6 +29,9 @@ export type JobCreateResponse = {
 export type JobMetadata = {
 	job_id: string;
 	status: JobStatus;
+	progress_percent: number;
+	stage: string | null;
+	stage_message: string | null;
 	input_filename: string;
 	input_path: string;
 	output_path: string | null;

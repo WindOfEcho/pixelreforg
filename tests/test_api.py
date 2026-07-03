@@ -13,7 +13,9 @@ sys.path.insert(0, str(ROOT / "apps" / "api"))
 from pixelreforge_api import app, create_app  # noqa: E402
 from pixelreforge_api.sentry_config import configure_sentry  # noqa: E402
 from pixelreforge_api.settings import ApiSettings, load_settings  # noqa: E402
-from pixelreforge_api.storage import get_metadata_path  # noqa: E402
+from pixelreforge_api.models import JobMetadata  # noqa: E402
+from pixelreforge_api.processing import process_job  # noqa: E402
+from pixelreforge_api.storage import get_job_dir, get_metadata_path, read_metadata, update_metadata, write_metadata  # noqa: E402
 
 
 @pytest.fixture
@@ -148,6 +150,9 @@ def test_create_job_processes_fixture_and_downloads_result(client: TestClient) -
     assert status_response.status_code == 200
     metadata = status_response.json()
     assert metadata["status"] == "completed"
+    assert metadata["progress_percent"] == 100
+    assert metadata["stage"] == "completed"
+    assert metadata["stage_message"] == "Restoration complete."
     assert metadata["source_size"] == [128, 128]
     assert metadata["target_size"] == [32, 32]
     assert metadata["scale_x"] == 4
@@ -260,3 +265,70 @@ def test_empty_metadata_file_returns_not_found(client: TestClient, caplog: pytes
 
     assert response.status_code == 404
     assert any(record.event == "job_metadata_unreadable" for record in caplog.records)
+
+
+def test_cancel_endpoint_marks_active_job_and_blocks_download(client: TestClient) -> None:
+    job_id = "cancel-active-job-regression"
+    job_dir = get_job_dir(job_id)
+    job_dir.mkdir(parents=True, exist_ok=True)
+    input_path = job_dir / "input.png"
+    input_path.write_bytes(b"not-used")
+    write_metadata(
+        JobMetadata(
+            job_id=job_id,
+            status="processing",
+            progress_percent=35,
+            stage="grid_recovery",
+            stage_message="Grid recovery...",
+            input_filename="input.png",
+            input_path=str(input_path.relative_to(ROOT)),
+        )
+    )
+
+    cancel_response = client.post(f"/api/jobs/{job_id}/cancel")
+
+    assert cancel_response.status_code == 200
+    metadata = cancel_response.json()
+    assert metadata["status"] == "cancelled"
+    assert metadata["stage"] == "cancelled"
+    assert metadata["stage_message"] == "Restoration cancelled."
+    download_response = client.get(f"/api/jobs/{job_id}/download")
+    assert download_response.status_code == 409
+
+
+def test_process_job_records_progress_and_preserves_cancelled_status(monkeypatch: pytest.MonkeyPatch) -> None:
+    job_id = "processing-cancel-regression"
+    job_dir = get_job_dir(job_id)
+    job_dir.mkdir(parents=True, exist_ok=True)
+    input_path = job_dir / "input.png"
+    input_path.write_bytes(b"not-used")
+    write_metadata(
+        JobMetadata(
+            job_id=job_id,
+            status="queued",
+            input_filename="input.png",
+            input_path=str(input_path.relative_to(ROOT)),
+        )
+    )
+
+    def cancel_during_processing(_input_path, _settings, progress=None, cancel=None):  # type: ignore[no-untyped-def]
+        progress("grid_recovery", 35.0, "Grid recovery...")
+
+        def mark_cancelled(metadata: JobMetadata) -> JobMetadata:
+            metadata.status = "cancelled"
+            return metadata
+
+        update_metadata(job_id, mark_cancelled)
+        assert cancel()
+        from pixelreforge_core import ProcessingCancelled
+
+        raise ProcessingCancelled("cancelled")
+
+    monkeypatch.setattr("pixelreforge_api.processing.process_image_file", cancel_during_processing)
+
+    process_job(job_id)
+
+    metadata = read_metadata(job_id)
+    assert metadata is not None
+    assert metadata.status == "cancelled"
+    assert metadata.stage == "cancelled"

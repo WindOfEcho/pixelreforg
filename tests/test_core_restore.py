@@ -9,7 +9,7 @@ from PIL import Image
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "packages" / "core"))
 
-from pixelreforge_core import RestoreSettings, process_image  # noqa: E402
+from pixelreforge_core import ProcessingCancelled, RestoreSettings, process_image  # noqa: E402
 from pixelreforge_core.image_io import save_image  # noqa: E402
 
 
@@ -202,13 +202,41 @@ class CoreRestoreTests(unittest.TestCase):
         self.assertEqual("isolated-pixel-neighborhood", result.reconstruction["artifact_cleanup"])
         self.assertIn("isolated_pixels_replaced", result.reconstruction)
 
-    def test_auto_does_not_select_ai_pixel_v2(self) -> None:
+    def test_progress_callback_receives_pipeline_stages(self) -> None:
+        image = Image.open(ROOT / "tests" / "fixtures" / "test-x4.png")
+        stages: list[tuple[str, float, str]] = []
+
+        process_image(
+            image,
+            RestoreSettings(scale_mode="manual", manual_scale_x=4, manual_scale_y=4),
+            progress=lambda stage, percent, message: stages.append((stage, percent, message)),
+        )
+
+        stage_names = [stage for stage, _, _ in stages]
+        self.assertIn("preflight", stage_names)
+        self.assertIn("grid_recovery", stage_names)
+        self.assertIn("palette_cleanup", stage_names)
+        self.assertTrue(all(0 <= percent <= 100 for _, percent, _ in stages))
+
+    def test_cancel_callback_stops_pipeline(self) -> None:
+        image = Image.open(ROOT / "tests" / "fixtures" / "test-x4.png")
+
+        with self.assertRaises(ProcessingCancelled):
+            process_image(
+                image,
+                RestoreSettings(scale_mode="manual", manual_scale_x=4, manual_scale_y=4),
+                cancel=lambda: True,
+            )
+
+    def test_auto_selects_ai_pixel_v2_for_ai_fixture(self) -> None:
         image = Image.open(ROOT / "tests" / "fixtures" / "test-ai-2.png")
         image.thumbnail((256, 256))
 
         result = process_image(image, RestoreSettings(algorithm="auto", scale_mode="auto", min_scale=1, max_scale=16))
 
-        self.assertNotEqual("ai-pixel-v2", result.algorithm_used)
+        self.assertEqual("ai-pixel-v2", result.algorithm_used)
+        self.assertEqual("ai-pixel-v2", result.analysis["recommended_algorithm"])
+        self.assertGreaterEqual(result.analysis["ai_pixel_v2_score"], 0.70)
 
     def _make_synthetic_pixel_art(self) -> np.ndarray:
         image = np.full((12, 14, 3), [186, 204, 142], dtype=np.uint8)

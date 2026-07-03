@@ -52,6 +52,8 @@
 		if (typeof before === 'number' && typeof after === 'number') return `${before} → ${after}`;
 		return 'unknown';
 	});
+	const progressPercent = $derived(Math.max(0, Math.min(100, metadata?.progress_percent ?? 0)));
+	const progressStyle = $derived(`width: ${progressPercent}%;`);
 
 	const metadataHelp: Record<string, HelpText> = {
 		source: {
@@ -138,10 +140,10 @@
 
 	{#if isProcessing}
 		<div class="grid min-h-56 place-items-center gap-4 rounded-[1.25rem] border border-[var(--color-border)] bg-[var(--color-surface-soft)] text-center text-[var(--color-text-muted)]" aria-live="polite">
-			<div class="h-3 w-full max-w-lg overflow-hidden rounded-full bg-[rgba(251,242,223,0.12)]" aria-label="Processing progress">
-				<span class="block h-full w-2/5 rounded-full bg-[linear-gradient(90deg,var(--color-action),var(--color-accent-strong),var(--color-action))] [animation:progress-sweep_1.2s_infinite_ease-in-out]"></span>
+			<div class="h-3 w-full max-w-lg overflow-hidden rounded-full bg-[rgba(251,242,223,0.12)]" role="progressbar" aria-label="Processing progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow={Math.round(progressPercent)}>
+				<span class="block h-full rounded-full bg-[linear-gradient(90deg,var(--color-action),var(--color-accent-strong))] transition-[width] duration-300 ease-out" style={progressStyle}></span>
 			</div>
-			<p class="readable-copy">{statusMessage}</p>
+			<p class="readable-copy">{statusMessage} ({Math.round(progressPercent)}%)</p>
 		</div>
 	{:else if resultPreviewUrl}
 		<div class="mb-4 flex flex-col gap-3 rounded-[1.25rem] bg-[var(--color-surface-soft)] p-4 md:flex-row md:items-end md:justify-between">

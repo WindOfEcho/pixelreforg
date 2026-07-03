@@ -22,7 +22,9 @@ def test_ai_fixtures_auto_pipeline_returns_metadata_without_crashing(fixture_nam
     assert result.image.size[1] >= 1
     assert result.analysis is not None
     assert result.analysis["unique_color_count"] > 0
-    assert result.analysis["recommended_algorithm"] in {"integer-grid-v1", "noisy-pixel-v1"}
+    assert result.algorithm_used == "ai-pixel-v2"
+    assert result.analysis["recommended_algorithm"] == "ai-pixel-v2"
+    assert result.analysis["ai_pixel_v2_score"] >= 0.70
     assert result.palette is not None
     assert "color_count_after" in result.palette
 
@@ -48,7 +50,7 @@ def test_ai_fixture_two_noisy_pixel_custom_palette_can_reduce_colors() -> None:
     )
 
     assert custom.algorithm_used == "noisy-pixel-v1"
-    assert custom.reconstruction["resize_method"] == "dominant-color-cluster"
+    assert custom.reconstruction["resize_method"] in {"dominant-color-cluster", "resampled-grid-dominant-color-cluster"}
     assert custom.palette["cleanup_applied"] is True
     assert custom.palette["color_count_after"] <= off.palette["color_count_after"]
     assert len(np.asarray(custom.image).shape) == 3

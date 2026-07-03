@@ -1,8 +1,10 @@
 from PIL import Image
 import numpy as np
 
+from .models import CancelCallback, ProcessingCancelled
 
-def downscale_by_majority_vote(image_array: np.ndarray, scale_x: int, scale_y: int) -> Image.Image:
+
+def downscale_by_majority_vote(image_array: np.ndarray, scale_x: int, scale_y: int, cancel: CancelCallback | None = None) -> Image.Image:
     if scale_x < 1 or scale_y < 1:
         raise ValueError("Scale values must be positive integers.")
 
@@ -21,6 +23,7 @@ def downscale_by_majority_vote(image_array: np.ndarray, scale_x: int, scale_y: i
     output = np.empty((target_height, target_width, channels), dtype=np.uint8)
 
     for y in range(target_height):
+        _raise_if_cancelled(cancel)
         for x in range(target_width):
             block = cropped[y * scale_y : (y + 1) * scale_y, x * scale_x : (x + 1) * scale_x]
             output[y, x] = _most_common_color(block)
@@ -34,6 +37,7 @@ def downscale_by_dominant_color_cluster(
     scale_x: int,
     scale_y: int,
     bucket_size: int = 16,
+    cancel: CancelCallback | None = None,
 ) -> Image.Image:
     if scale_x < 1 or scale_y < 1:
         raise ValueError("Scale values must be positive integers.")
@@ -53,6 +57,7 @@ def downscale_by_dominant_color_cluster(
     output = np.empty((target_height, target_width, channels), dtype=np.uint8)
 
     for y in range(target_height):
+        _raise_if_cancelled(cancel)
         for x in range(target_width):
             block = cropped[y * scale_y : (y + 1) * scale_y, x * scale_x : (x + 1) * scale_x]
             output[y, x] = _dominant_color_cluster(block, bucket_size)
@@ -67,6 +72,7 @@ def downscale_by_resampled_grid(
     target_height: int,
     aggregation: str = "majority",
     bucket_size: int = 16,
+    cancel: CancelCallback | None = None,
 ) -> Image.Image:
     height, width = image_array.shape[:2]
     if target_width < 1 or target_height < 1:
@@ -78,6 +84,7 @@ def downscale_by_resampled_grid(
     output = np.empty((target_height, target_width, channels), dtype=np.uint8)
 
     for y in range(target_height):
+        _raise_if_cancelled(cancel)
         y0 = int(np.floor(y * height / target_height))
         y1 = int(np.ceil((y + 1) * height / target_height))
         for x in range(target_width):
@@ -91,6 +98,11 @@ def downscale_by_resampled_grid(
 
     mode = "RGBA" if channels == 4 else "RGB"
     return Image.fromarray(output, mode=mode)
+
+
+def _raise_if_cancelled(cancel: CancelCallback | None) -> None:
+    if cancel is not None and cancel():
+        raise ProcessingCancelled("Processing was cancelled.")
 
 
 def _most_common_color(block: np.ndarray) -> np.ndarray:

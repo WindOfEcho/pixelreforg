@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Any, Callable, Literal
 
 from PIL import Image
 
@@ -7,6 +7,12 @@ from PIL import Image
 ScaleMode = Literal["auto", "manual"]
 RestoreAlgorithm = Literal["auto", "integer-grid-v1", "resampled-grid-v2", "noisy-pixel-v1", "ai-pixel-v2"]
 PaletteCleanupMode = Literal["off", "light", "medium", "strong", "custom"]
+ProgressCallback = Callable[[str, float, str], None]
+CancelCallback = Callable[[], bool]
+
+
+class ProcessingCancelled(Exception):
+    """Raised when image processing is cancelled by the caller."""
 
 
 @dataclass(frozen=True)

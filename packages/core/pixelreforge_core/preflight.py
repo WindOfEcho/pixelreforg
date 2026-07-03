@@ -11,6 +11,7 @@ class PreflightAnalysis:
     noise_score: float
     jpeg_artifact_score: float
     ai_artifact_score: float
+    ai_pixel_v2_score: float
     grid_confidence: float
     unique_color_count: int
     estimated_palette_size: int
@@ -33,13 +34,15 @@ def analyze_image(image_array: np.ndarray, source_format: str | None, grid_confi
     noise_score = _noise_score(image_array, unique_color_count, estimated_palette_size)
     jpeg_score = _jpeg_artifact_score(source_format, noise_score, near_duplicate_ratio)
     ai_score = _ai_artifact_score(source_format, noise_score, near_duplicate_ratio, grid_confidence)
-    recommended_algorithm, confidence, reasons = _recommend_algorithm(jpeg_score, ai_score, grid_confidence)
+    ai_pixel_v2_score = _ai_pixel_v2_score(source_format, ai_score, near_duplicate_ratio, grid_confidence)
+    recommended_algorithm, confidence, reasons = _recommend_algorithm(jpeg_score, ai_score, ai_pixel_v2_score, grid_confidence)
 
     return PreflightAnalysis(
         source_format=source_format,
         noise_score=noise_score,
         jpeg_artifact_score=jpeg_score,
         ai_artifact_score=ai_score,
+        ai_pixel_v2_score=ai_pixel_v2_score,
         grid_confidence=_clamp01(grid_confidence),
         unique_color_count=unique_color_count,
         estimated_palette_size=estimated_palette_size,
@@ -112,8 +115,22 @@ def _ai_artifact_score(
     return _clamp01(non_jpeg_bias + (noise_score * 0.45) + (near_duplicate_ratio * 0.25) + (uncertain_grid * 0.15))
 
 
-def _recommend_algorithm(jpeg_score: float, ai_score: float, grid_confidence: float) -> tuple[str, float, list[str]]:
+def _ai_pixel_v2_score(source_format: str | None, ai_score: float, near_duplicate_ratio: float, grid_confidence: float) -> float:
+    if (source_format or "").upper() in ("JPEG", "JPG"):
+        return 0.0
+    uncertain_grid = 1.0 - _clamp01(grid_confidence)
+    return _clamp01((ai_score * 0.55) + (near_duplicate_ratio * 0.30) + (uncertain_grid * 0.15))
+
+
+def _recommend_algorithm(jpeg_score: float, ai_score: float, ai_pixel_v2_score: float, grid_confidence: float) -> tuple[str, float, list[str]]:
     reasons: list[str] = []
+    if ai_pixel_v2_score >= 0.70 and grid_confidence < 0.99:
+        reasons.append("AI pixel-art artifacts detected with high confidence")
+        reasons.append("palette fragmentation is strong")
+        if grid_confidence < 0.50:
+            reasons.append("integer grid confidence is low")
+        return "ai-pixel-v2", _clamp01(ai_pixel_v2_score), reasons
+
     noisy_score = max(jpeg_score, ai_score)
     if noisy_score >= 0.55:
         if jpeg_score >= ai_score:

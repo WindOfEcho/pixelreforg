@@ -10,7 +10,7 @@
 	import type { NotificationTone, UiNotification } from '$lib/ui/types';
 
 	const JOB_POLL_INTERVAL_MS = 500;
-	const JOB_TIMEOUT_MS = 120_000;
+	const JOB_TIMEOUT_MS = 600_000;
 	const NOTIFICATION_AUTO_DISMISS_MS = 6000;
 
 	let selectedFile = $state<File | null>(null);
@@ -143,11 +143,12 @@
 		const deadline = Date.now() + JOB_TIMEOUT_MS;
 		while (Date.now() < deadline) {
 			const job = await getJob(jobId);
+			metadata = job;
 
 			if (job.status === 'completed' || job.status === 'cancelled') return job;
 			if (job.status === 'failed') throw new Error(job.error ?? 'Processing job failed.');
 
-			statusMessage = `Processing image... ${job.status}`;
+			statusMessage = progressMessage(job);
 			await new Promise((resolve) => setTimeout(resolve, JOB_POLL_INTERVAL_MS));
 		}
 
@@ -171,6 +172,10 @@
 			confidenceThreshold,
 			fractionalScaleStep
 		};
+	}
+
+	function progressMessage(job: JobMetadata): string {
+		return job.stage_message ?? `Processing image... ${job.status}`;
 	}
 
 	function clearResult() {

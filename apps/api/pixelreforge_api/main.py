@@ -12,7 +12,7 @@ from .models import JobCreateResponse, JobMetadata, PaletteCleanupMode, RestoreA
 from .processing import output_file_path, process_job
 from .sentry_config import configure_sentry
 from .settings import load_settings
-from .storage import create_job, read_metadata, write_metadata
+from .storage import create_job, read_metadata, update_metadata
 
 
 logger = logging.getLogger(__name__)
@@ -167,9 +167,17 @@ def create_app() -> FastAPI:
         if metadata.status in ("completed", "failed", "cancelled"):
             return metadata
 
-        metadata.status = "cancelled"
-        metadata.error = None
-        write_metadata(metadata)
+        def mark_cancelled(current: JobMetadata) -> JobMetadata:
+            if current.status not in ("completed", "failed", "cancelled"):
+                current.status = "cancelled"
+                current.stage = "cancelled"
+                current.stage_message = "Restoration cancelled."
+                current.error = None
+            return current
+
+        metadata = update_metadata(job_id, mark_cancelled)
+        if metadata is None:
+            raise HTTPException(status_code=404, detail="Job not found.")
         logger.info("Job cancelled.", extra={"event": "job_cancelled", "job_id": job_id, "status": metadata.status})
         return metadata
 

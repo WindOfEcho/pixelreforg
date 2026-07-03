@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from PIL import Image
 import numpy as np
 
+from .models import CancelCallback, ProcessingCancelled
 from .resize import downscale_by_resampled_grid
 
 
@@ -17,6 +18,7 @@ def restore_ai_pixel_art(
     target_width: int,
     target_height: int,
     bucket_size: int = 16,
+    cancel: CancelCallback | None = None,
 ) -> AiPixelResult:
     clustered = downscale_by_resampled_grid(
         image_array,
@@ -24,8 +26,9 @@ def restore_ai_pixel_art(
         target_height,
         aggregation="dominant-color-cluster",
         bucket_size=bucket_size,
+        cancel=cancel,
     )
-    cleaned_array, replaced_pixels = _replace_isolated_pixels(np.asarray(clustered))
+    cleaned_array, replaced_pixels = _replace_isolated_pixels(np.asarray(clustered), cancel)
     mode = "RGBA" if cleaned_array.shape[2] == 4 else "RGB"
     return AiPixelResult(
         image=Image.fromarray(cleaned_array, mode=mode),
@@ -36,13 +39,15 @@ def restore_ai_pixel_art(
     )
 
 
-def _replace_isolated_pixels(image_array: np.ndarray) -> tuple[np.ndarray, int]:
+def _replace_isolated_pixels(image_array: np.ndarray, cancel: CancelCallback | None = None) -> tuple[np.ndarray, int]:
     if image_array.shape[0] < 3 or image_array.shape[1] < 3:
         return image_array.copy(), 0
 
     output = image_array.copy()
     replaced = 0
     for y in range(1, image_array.shape[0] - 1):
+        if cancel is not None and cancel():
+            raise ProcessingCancelled("Processing was cancelled.")
         for x in range(1, image_array.shape[1] - 1):
             block = image_array[y - 1 : y + 2, x - 1 : x + 2]
             center = image_array[y, x]

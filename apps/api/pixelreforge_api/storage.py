@@ -2,6 +2,8 @@ from pathlib import Path
 import json
 import logging
 import shutil
+from threading import RLock
+from typing import Callable
 from uuid import uuid4
 
 from fastapi import UploadFile
@@ -13,6 +15,8 @@ from .models import JobMetadata
 logger = logging.getLogger(__name__)
 ROOT = Path(__file__).resolve().parents[3]
 RUNTIME_DIR = ROOT / "runtime" / "jobs"
+_job_locks: dict[str, RLock] = {}
+_job_locks_guard = RLock()
 
 
 def create_job(file: UploadFile) -> JobMetadata:
@@ -28,6 +32,9 @@ def create_job(file: UploadFile) -> JobMetadata:
     metadata = JobMetadata(
         job_id=job_id,
         status="queued",
+        progress_percent=5.0,
+        stage="upload_accepted",
+        stage_message="Upload accepted.",
         input_filename=filename,
         input_path=str(input_path.relative_to(ROOT)),
     )
@@ -54,6 +61,33 @@ def get_metadata_path(job_id: str) -> Path:
 
 
 def read_metadata(job_id: str) -> JobMetadata | None:
+    with _job_lock(job_id):
+        return _read_metadata_unlocked(job_id)
+
+
+def write_metadata(metadata: JobMetadata) -> None:
+    with _job_lock(metadata.job_id):
+        _write_metadata_unlocked(metadata)
+
+
+def update_metadata(job_id: str, update: Callable[[JobMetadata], JobMetadata]) -> JobMetadata | None:
+    with _job_lock(job_id):
+        metadata = _read_metadata_unlocked(job_id)
+        if metadata is None:
+            return None
+        metadata = update(metadata)
+        _write_metadata_unlocked(metadata)
+        return metadata
+
+
+def _job_lock(job_id: str) -> RLock:
+    with _job_locks_guard:
+        if job_id not in _job_locks:
+            _job_locks[job_id] = RLock()
+        return _job_locks[job_id]
+
+
+def _read_metadata_unlocked(job_id: str) -> JobMetadata | None:
     metadata_path = get_metadata_path(job_id)
     if not metadata_path.exists():
         return None
@@ -67,7 +101,7 @@ def read_metadata(job_id: str) -> JobMetadata | None:
         return None
 
 
-def write_metadata(metadata: JobMetadata) -> None:
+def _write_metadata_unlocked(metadata: JobMetadata) -> None:
     metadata_path = get_metadata_path(metadata.job_id)
     metadata_path.parent.mkdir(parents=True, exist_ok=True)
     temp_path = metadata_path.with_suffix(".json.tmp")
