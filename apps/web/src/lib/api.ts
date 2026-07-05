@@ -39,6 +39,7 @@ export async function createJob(file: File, settings: RestoreSettings): Promise<
 	const endpoint = `${API_BASE_URL}/api/jobs?${params.toString()}`;
 	const response = await fetch(endpoint, {
 		method: 'POST',
+		credentials: 'include',
 		body: formData
 	});
 
@@ -51,7 +52,7 @@ export async function createJob(file: File, settings: RestoreSettings): Promise<
 
 export async function getJob(jobId: string): Promise<JobMetadata> {
 	const endpoint = `${API_BASE_URL}/api/jobs/${jobId}`;
-	const response = await fetch(endpoint);
+	const response = await fetch(endpoint, { credentials: 'include' });
 	if (!response.ok) {
 		throw await apiError(response, endpoint, 'Failed to read processing job.');
 	}
@@ -61,7 +62,7 @@ export async function getJob(jobId: string): Promise<JobMetadata> {
 
 export async function downloadResult(jobId: string): Promise<Blob> {
 	const endpoint = `${API_BASE_URL}/api/jobs/${jobId}/download`;
-	const response = await fetch(endpoint);
+	const response = await fetch(endpoint, { credentials: 'include' });
 	if (!response.ok) {
 		throw await apiError(response, endpoint, 'Failed to download restored image.');
 	}
@@ -72,7 +73,8 @@ export async function downloadResult(jobId: string): Promise<Blob> {
 export async function cancelJob(jobId: string): Promise<JobMetadata> {
 	const endpoint = `${API_BASE_URL}/api/jobs/${jobId}/cancel`;
 	const response = await fetch(endpoint, {
-		method: 'POST'
+		method: 'POST',
+		credentials: 'include'
 	});
 	if (!response.ok) {
 		throw await apiError(response, endpoint, 'Failed to cancel processing job.');

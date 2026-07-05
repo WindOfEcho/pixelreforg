@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.12] - 2026-07-05
+
+### Added
+
+- Signed anonymous HttpOnly session cookie middleware for all `/api/*` endpoints (`session.py` with HMAC-SHA256 token signing).
+- `owner_id` field on `JobMetadata` — automatically bound from the anonymous session at job creation.
+- `JobPublicMetadata` response model that excludes `owner_id`, `input_path`, and `output_path` from public API responses.
+- `owner_id` filtering on `GET /api/jobs` — list endpoint only returns jobs belonging to the current session.
+- `_owned_job_or_404` helper — 404 for foreign jobs on status, download, and cancel endpoints, preventing cross-session access.
+- Frontend `credentials: 'include'` on all `fetch` calls (`createJob`, `getJob`, `downloadResult`, `cancelJob`) to propagate the session cookie.
+- Production `PIXELREFORGE_SESSION_SECRET` configuration: required-in-production validation, env-var read, docker-compose injection for both API and worker services.
+- Configurable `PIXELREFORGE_SESSION_COOKIE_NAME` and `PIXELREFORGE_SESSION_MAX_AGE_SECONDS` settings with sensible defaults.
+- `.env.example` entries for all session-related environment variables.
+- Test coverage: anonymous session isolation (cross-client 404 for status/list/download/cancel), same-session access after client reload, invalid cookie starts fresh session, production secret requirement.
+
+### Changed
+
+- `GET /api/jobs/{job_id}` now returns `JobPublicMetadata` (no internal storage paths exposed).
+- `POST /api/jobs/{job_id}/cancel` now returns `JobPublicMetadata`.
+- `JobListResponse.jobs` type changed from `list[JobMetadata]` to `list[JobPublicMetadata]`.
+- Frontend `JobMetadata` TypeScript type — removed `input_path` and `output_path` fields.
+- `cancel_endpoint` regression test rewritten to use real job creation flow for session integration.
+
 ## [0.0.11] - 2026-07-05
 
 ### Added

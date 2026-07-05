@@ -6,6 +6,9 @@ from pathlib import Path
 VALID_ENVS = {"development", "production", "test"}
 VALID_LOG_FORMATS = {"json", "plain"}
 DEFAULT_CORS_ORIGINS = ("http://localhost:5173", "http://127.0.0.1:5173")
+DEFAULT_SESSION_COOKIE_NAME = "pixelreforge_session"
+DEFAULT_SESSION_MAX_AGE_SECONDS = 30 * 24 * 60 * 60
+DEVELOPMENT_SESSION_SECRET = "pixelreforge-development-session-secret"
 
 
 def _read_bool(name: str, default: bool = False) -> bool:
@@ -40,6 +43,9 @@ class ApiSettings:
     worker_poll_interval_seconds: float = 1.0
     worker_heartbeat_interval_seconds: float = 10.0
     worker_id: str = "default"
+    session_secret: str = DEVELOPMENT_SESSION_SECRET
+    session_cookie_name: str = DEFAULT_SESSION_COOKIE_NAME
+    session_max_age_seconds: int = DEFAULT_SESSION_MAX_AGE_SECONDS
 
     @property
     def is_production(self) -> bool:
@@ -62,6 +68,7 @@ def load_settings() -> ApiSettings:
         log_format = default_format
     sentry_traces_sample_rate = _read_float("PIXELREFORGE_SENTRY_TRACES_SAMPLE_RATE", default=0.0)
     database_url = os.getenv("PIXELREFORGE_DATABASE_URL") or f"sqlite:///{root / 'runtime' / 'pixelreforge.sqlite3'}"
+    session_secret = _read_session_secret(env)
 
     return ApiSettings(
         env=env,
@@ -80,7 +87,23 @@ def load_settings() -> ApiSettings:
         worker_poll_interval_seconds=_read_float("PIXELREFORGE_WORKER_POLL_INTERVAL_SECONDS", default=1.0, minimum=0.05),
         worker_heartbeat_interval_seconds=_read_float("PIXELREFORGE_WORKER_HEARTBEAT_INTERVAL_SECONDS", default=10.0, minimum=0.5),
         worker_id=os.getenv("PIXELREFORGE_WORKER_ID", "default").strip() or "default",
+        session_secret=session_secret,
+        session_cookie_name=os.getenv("PIXELREFORGE_SESSION_COOKIE_NAME", DEFAULT_SESSION_COOKIE_NAME).strip() or DEFAULT_SESSION_COOKIE_NAME,
+        session_max_age_seconds=_read_int(
+            "PIXELREFORGE_SESSION_MAX_AGE_SECONDS",
+            default=DEFAULT_SESSION_MAX_AGE_SECONDS,
+            minimum=60,
+        ),
     )
+
+
+def _read_session_secret(env: str) -> str:
+    value = os.getenv("PIXELREFORGE_SESSION_SECRET")
+    if value is not None and value.strip():
+        return value.strip()
+    if env == "production":
+        raise ValueError("PIXELREFORGE_SESSION_SECRET is required in production.")
+    return DEVELOPMENT_SESSION_SECRET
 
 
 def _read_int(name: str, default: int, minimum: int | None = None) -> int:

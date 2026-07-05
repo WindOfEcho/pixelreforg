@@ -33,8 +33,6 @@ export type JobMetadata = {
 	stage: string | null;
 	stage_message: string | null;
 	input_filename: string;
-	input_path: string;
-	output_path: string | null;
 	algorithm_requested: string | null;
 	algorithm_used: string | null;
 	algorithm_version: string | null;

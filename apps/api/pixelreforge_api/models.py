@@ -65,6 +65,42 @@ class JobMetadata(BaseModel):
     params: dict[str, Any] = Field(default_factory=dict)
 
 
+class JobPublicMetadata(BaseModel):
+    job_id: str
+    status: JobStatus
+    progress_percent: float = Field(default=0.0, ge=0.0, le=100.0)
+    stage: str | None = None
+    stage_message: str | None = None
+    input_filename: str
+    algorithm_requested: str | None = None
+    algorithm_used: str | None = None
+    algorithm_version: str | None = None
+    source_size: tuple[int, int] | None = None
+    target_size: tuple[int, int] | None = None
+    original_size_override: tuple[int, int] | None = None
+    scale_x: float | None = None
+    scale_y: float | None = None
+    scale_method: str | None = None
+    confidence: float | None = None
+    palette_cleanup: str | None = None
+    analysis: dict | None = None
+    palette: dict | None = None
+    reconstruction: dict | None = None
+    warnings: list[str] = Field(default_factory=list)
+    error: str | None = None
+    attempts: int = Field(default=0, ge=0)
+    max_attempts: int = Field(default=3, ge=1)
+    last_error: str | None = None
+    started_at: datetime | None = None
+    heartbeat_at: datetime | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+    expires_at: datetime | None = None
+    cancel_requested: bool = False
+    worker_id: str | None = None
+    params: dict[str, Any] = Field(default_factory=dict)
+
+
 class JobCreateResponse(BaseModel):
     job_id: str
     status: JobStatus
@@ -73,6 +109,6 @@ class JobCreateResponse(BaseModel):
 
 
 class JobListResponse(BaseModel):
-    jobs: list[JobMetadata]
+    jobs: list[JobPublicMetadata]
     limit: int
     offset: int

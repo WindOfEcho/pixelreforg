@@ -73,9 +73,12 @@ Create `.env` from `.env.example` and set the public domain:
 PIXELREFORGE_DOMAIN=example.com
 PIXELREFORGE_CORS_ORIGINS=https://example.com
 PIXELREFORGE_LOG_LEVEL=INFO
+PIXELREFORGE_SESSION_SECRET=change-me-to-a-random-secret
 PIXELREFORGE_SENTRY_DSN=
 PIXELREFORGE_SENTRY_TRACES_SAMPLE_RATE=0.0
 ```
+
+`PIXELREFORGE_SESSION_SECRET` is required in production. It signs anonymous session cookies that limit job metadata and result downloads to the browser that created the job.
 
 Run from `pixelreforge/`:
 

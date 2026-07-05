@@ -10,9 +10,10 @@ from fastapi.responses import FileResponse
 from .job_store import JobStore, create_job_store
 from .logging_config import configure_logging
 from .logging_context import reset_request_id, set_request_id
-from .models import JobCreateResponse, JobListResponse, JobMetadata, JobParameters, PaletteCleanupMode, RestoreAlgorithm, ScaleMode
+from .models import JobCreateResponse, JobListResponse, JobMetadata, JobParameters, JobPublicMetadata, PaletteCleanupMode, RestoreAlgorithm, ScaleMode
 from .processing import output_file_path
 from .sentry_config import configure_sentry
+from .session import resolve_anonymous_session
 from .settings import ApiSettings, load_settings
 from .storage import delete_job_files, save_job_input
 
@@ -22,6 +23,8 @@ logger = logging.getLogger(__name__)
 
 def create_app(settings: ApiSettings | None = None, job_store: JobStore | None = None) -> FastAPI:
     settings = settings or load_settings()
+    if settings.is_production and not settings.session_secret:
+        raise ValueError("PIXELREFORGE_SESSION_SECRET is required in production.")
     job_store = job_store or create_job_store(settings)
     configure_logging(settings)
     configure_sentry(settings)
@@ -44,6 +47,30 @@ def create_app(settings: ApiSettings | None = None, job_store: JobStore | None =
             "log_format": settings.log_format,
         },
     )
+
+    @api.middleware("http")
+    async def anonymous_session_middleware(request: Request, call_next):  # type: ignore[no-untyped-def]
+        if request.method == "OPTIONS" or not request.url.path.startswith("/api/"):
+            return await call_next(request)
+
+        session = resolve_anonymous_session(
+            request.cookies.get(settings.session_cookie_name),
+            secret=settings.session_secret,
+            max_age_seconds=settings.session_max_age_seconds,
+        )
+        request.state.anonymous_session_id = session.session_id
+        response = await call_next(request)
+        if session.should_set_cookie:
+            response.set_cookie(
+                key=settings.session_cookie_name,
+                value=session.token,
+                max_age=settings.session_max_age_seconds,
+                httponly=True,
+                secure=settings.is_production,
+                samesite="lax",
+                path="/",
+            )
+        return response
 
     @api.middleware("http")
     async def request_logging_middleware(request: Request, call_next):  # type: ignore[no-untyped-def]
@@ -94,13 +121,17 @@ def create_app(settings: ApiSettings | None = None, job_store: JobStore | None =
 
     @api.get("/api/jobs", response_model=JobListResponse)
     def list_processing_jobs(
+        request: Request,
         limit: int = Query(default=50, ge=1, le=100),
         offset: int = Query(default=0, ge=0),
     ) -> JobListResponse:
-        return JobListResponse(jobs=job_store.list_jobs(limit=limit, offset=offset), limit=limit, offset=offset)
+        owner_id = _session_id_from_request(request)
+        jobs = [_public_job(metadata) for metadata in job_store.list_jobs(limit=limit, offset=offset, owner_id=owner_id)]
+        return JobListResponse(jobs=jobs, limit=limit, offset=offset)
 
     @api.post("/api/jobs", response_model=JobCreateResponse, status_code=202)
     def create_processing_job(
+        request: Request,
         file: UploadFile = File(...),
         algorithm: RestoreAlgorithm = Query(default="auto"),
         scale_mode: ScaleMode = Query(default="manual"),
@@ -143,6 +174,7 @@ def create_app(settings: ApiSettings | None = None, job_store: JobStore | None =
         now = datetime.now(UTC)
         metadata = JobMetadata(
             job_id=job_id,
+            owner_id=_session_id_from_request(request),
             status="queued",
             progress_percent=5.0,
             stage="upload_accepted",
@@ -174,18 +206,14 @@ def create_app(settings: ApiSettings | None = None, job_store: JobStore | None =
             download_url=f"/api/jobs/{metadata.job_id}/download",
         )
 
-    @api.get("/api/jobs/{job_id}", response_model=JobMetadata)
-    def get_processing_job(job_id: str) -> JobMetadata:
-        metadata = job_store.get_job(job_id)
-        if metadata is None:
-            raise HTTPException(status_code=404, detail="Job not found.")
-        return metadata
+    @api.get("/api/jobs/{job_id}", response_model=JobPublicMetadata)
+    def get_processing_job(job_id: str, request: Request) -> JobPublicMetadata:
+        metadata = _owned_job_or_404(job_store, job_id, _session_id_from_request(request))
+        return _public_job(metadata)
 
     @api.get("/api/jobs/{job_id}/download")
-    def download_processing_result(job_id: str) -> FileResponse:
-        metadata = job_store.get_job(job_id)
-        if metadata is None:
-            raise HTTPException(status_code=404, detail="Job not found.")
+    def download_processing_result(job_id: str, request: Request) -> FileResponse:
+        metadata = _owned_job_or_404(job_store, job_id, _session_id_from_request(request))
         if metadata.status != "completed":
             raise HTTPException(status_code=409, detail="Job is not completed.")
 
@@ -194,13 +222,12 @@ def create_app(settings: ApiSettings | None = None, job_store: JobStore | None =
             raise HTTPException(status_code=404, detail="Output file not found.")
         return FileResponse(output_path, media_type="image/png", filename="pixelreforge-result.png")
 
-    @api.post("/api/jobs/{job_id}/cancel", response_model=JobMetadata)
-    def cancel_processing_job(job_id: str) -> JobMetadata:
-        metadata = job_store.get_job(job_id)
-        if metadata is None:
-            raise HTTPException(status_code=404, detail="Job not found.")
+    @api.post("/api/jobs/{job_id}/cancel", response_model=JobPublicMetadata)
+    def cancel_processing_job(job_id: str, request: Request) -> JobPublicMetadata:
+        owner_id = _session_id_from_request(request)
+        metadata = _owned_job_or_404(job_store, job_id, owner_id)
         if metadata.status in ("completed", "failed", "cancelled"):
-            return metadata
+            return _public_job(metadata)
 
         def mark_cancelled(current: JobMetadata) -> JobMetadata:
             if current.status not in ("completed", "failed", "cancelled"):
@@ -215,12 +242,30 @@ def create_app(settings: ApiSettings | None = None, job_store: JobStore | None =
             return current
 
         metadata = job_store.update_job(job_id, mark_cancelled)
-        if metadata is None:
+        if metadata is None or metadata.owner_id != owner_id:
             raise HTTPException(status_code=404, detail="Job not found.")
         logger.info("Job cancelled.", extra={"event": "job_cancelled", "job_id": job_id, "status": metadata.status})
-        return metadata
+        return _public_job(metadata)
 
     return api
+
+
+def _session_id_from_request(request: Request) -> str:
+    session_id = getattr(request.state, "anonymous_session_id", None)
+    if not isinstance(session_id, str) or not session_id:
+        raise HTTPException(status_code=500, detail="Anonymous session is unavailable.")
+    return session_id
+
+
+def _owned_job_or_404(job_store: JobStore, job_id: str, owner_id: str) -> JobMetadata:
+    metadata = job_store.get_job(job_id)
+    if metadata is None or metadata.owner_id != owner_id:
+        raise HTTPException(status_code=404, detail="Job not found.")
+    return metadata
+
+
+def _public_job(metadata: JobMetadata) -> JobPublicMetadata:
+    return JobPublicMetadata.model_validate(metadata.model_dump())
 
 
 app = create_app()

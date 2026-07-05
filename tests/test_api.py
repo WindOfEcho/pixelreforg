@@ -68,6 +68,7 @@ def test_production_request_logging_records_successful_requests(monkeypatch: pyt
     monkeypatch.setenv("PIXELREFORGE_ENV", "production")
     monkeypatch.setenv("PIXELREFORGE_LOG_FORMAT", "json")
     monkeypatch.setenv("PIXELREFORGE_LOG_LEVEL", "INFO")
+    monkeypatch.setenv("PIXELREFORGE_SESSION_SECRET", "test-production-session-secret")
     production_app = create_app()
     production_client = TestClient(production_app)
 
@@ -89,6 +90,7 @@ def test_settings_read_runtime_mode_from_environment(monkeypatch: pytest.MonkeyP
     monkeypatch.setenv("PIXELREFORGE_SENTRY_DSN", "https://public@example.invalid/1")
     monkeypatch.setenv("PIXELREFORGE_SENTRY_TRACES_SAMPLE_RATE", "0.25")
     monkeypatch.setenv("PIXELREFORGE_CORS_ORIGINS", "https://example.com")
+    monkeypatch.setenv("PIXELREFORGE_SESSION_SECRET", "test-production-session-secret")
 
     settings = load_settings()
 
@@ -99,6 +101,14 @@ def test_settings_read_runtime_mode_from_environment(monkeypatch: pytest.MonkeyP
     assert settings.sentry_dsn == "https://public@example.invalid/1"
     assert settings.sentry_traces_sample_rate == 0.25
     assert settings.cors_origins == ("https://example.com",)
+
+
+def test_production_settings_require_session_secret(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("PIXELREFORGE_ENV", "production")
+    monkeypatch.delenv("PIXELREFORGE_SESSION_SECRET", raising=False)
+
+    with pytest.raises(ValueError, match="PIXELREFORGE_SESSION_SECRET"):
+        load_settings()
 
 
 def test_sentry_is_disabled_without_dsn(caplog: pytest.LogCaptureFixture) -> None:
@@ -174,6 +184,7 @@ def test_create_job_processes_fixture_and_downloads_result(client: TestClient, w
     create_payload = create_response.json()
     job_id = create_payload["job_id"]
     assert create_payload["status"] == "queued"
+    assert client.cookies.get("pixelreforge_session") is not None
 
     assert worker.run_once() is True
 
@@ -181,6 +192,9 @@ def test_create_job_processes_fixture_and_downloads_result(client: TestClient, w
     assert status_response.status_code == 200
     metadata = status_response.json()
     assert metadata["status"] == "completed"
+    assert "owner_id" not in metadata
+    assert "input_path" not in metadata
+    assert "output_path" not in metadata
     assert metadata["progress_percent"] == 100
     assert metadata["stage"] == "completed"
     assert metadata["stage_message"] == "Restoration complete."
@@ -332,6 +346,97 @@ def test_missing_job_returns_not_found(client: TestClient) -> None:
     assert response.status_code == 404
 
 
+def test_same_anonymous_session_keeps_access_after_client_reload(api_settings: ApiSettings, job_store: SQLiteJobStore) -> None:
+    app = create_app(settings=api_settings, job_store=job_store)
+    first_client = TestClient(app)
+    reloaded_client = TestClient(app)
+    fixture_path = ROOT / "tests" / "fixtures" / "test-jpegs-x4-90.jpg"
+
+    with fixture_path.open("rb") as image_file:
+        create_response = first_client.post(
+            "/api/jobs?scale=4",
+            files={"file": ("owned.jpg", image_file, "image/jpeg")},
+        )
+
+    assert create_response.status_code == 202
+    job_id = create_response.json()["job_id"]
+    session_cookie = first_client.cookies.get(api_settings.session_cookie_name)
+    assert session_cookie is not None
+    reloaded_client.cookies.set(api_settings.session_cookie_name, session_cookie, domain="testserver.local", path="/")
+
+    response = reloaded_client.get(f"/api/jobs/{job_id}")
+
+    assert response.status_code == 200
+    assert response.json()["job_id"] == job_id
+
+
+def test_anonymous_sessions_isolate_job_status_list_download_and_cancel(api_settings: ApiSettings, job_store: SQLiteJobStore) -> None:
+    app = create_app(settings=api_settings, job_store=job_store)
+    owner_client = TestClient(app)
+    other_client = TestClient(app)
+    fixture_path = ROOT / "tests" / "fixtures" / "test-jpegs-x4-90.jpg"
+
+    with fixture_path.open("rb") as image_file:
+        create_response = owner_client.post(
+            "/api/jobs?scale=4",
+            files={"file": ("owned.jpg", image_file, "image/jpeg")},
+        )
+
+    assert create_response.status_code == 202
+    job_id = create_response.json()["job_id"]
+
+    def complete_job(metadata: JobMetadata) -> JobMetadata:
+        output_path = get_job_dir(job_id) / "output.png"
+        output_path.write_bytes(b"\x89PNG\r\n\x1a\nowned")
+        metadata.status = "completed"
+        metadata.progress_percent = 100
+        metadata.stage = "completed"
+        metadata.output_path = str(output_path.relative_to(ROOT))
+        return metadata
+
+    assert job_store.update_job(job_id, complete_job) is not None
+
+    assert owner_client.get(f"/api/jobs/{job_id}").status_code == 200
+    owner_download = owner_client.get(f"/api/jobs/{job_id}/download")
+    assert owner_download.status_code == 200
+    assert owner_download.content.startswith(b"\x89PNG")
+
+    assert other_client.get(f"/api/jobs/{job_id}").status_code == 404
+    assert other_client.get(f"/api/jobs/{job_id}/download").status_code == 404
+    assert other_client.post(f"/api/jobs/{job_id}/cancel").status_code == 404
+    list_response = other_client.get("/api/jobs?limit=10")
+    assert list_response.status_code == 200
+    assert job_id not in [job["job_id"] for job in list_response.json()["jobs"]]
+
+
+def test_invalid_anonymous_session_cookie_starts_new_session_without_old_access(
+    api_settings: ApiSettings,
+    job_store: SQLiteJobStore,
+) -> None:
+    app = create_app(settings=api_settings, job_store=job_store)
+    owner_client = TestClient(app)
+    invalid_client = TestClient(app)
+    invalid_client.cookies.set(api_settings.session_cookie_name, "invalid-token", domain="testserver.local", path="/")
+    fixture_path = ROOT / "tests" / "fixtures" / "test-jpegs-x4-90.jpg"
+
+    with fixture_path.open("rb") as image_file:
+        create_response = owner_client.post(
+            "/api/jobs?scale=4",
+            files={"file": ("owned.jpg", image_file, "image/jpeg")},
+        )
+
+    assert create_response.status_code == 202
+    job_id = create_response.json()["job_id"]
+    owner_cookie = owner_client.cookies.get(api_settings.session_cookie_name)
+
+    response = invalid_client.get(f"/api/jobs/{job_id}")
+
+    assert response.status_code == 404
+    invalid_cookie = invalid_client.cookies.get(api_settings.session_cookie_name, domain="testserver.local", path="/")
+    assert invalid_cookie is not None
+    assert invalid_cookie != owner_cookie
+
+
 def test_list_jobs_returns_recent_queued_jobs(client: TestClient) -> None:
     fixture_path = ROOT / "tests" / "fixtures" / "test-jpegs-x4-90.jpg"
     with fixture_path.open("rb") as image_file:
@@ -392,24 +497,25 @@ def test_worker_recovery_requeues_interrupted_processing_job(worker: JobWorker, 
 
 
 def test_cancel_endpoint_marks_active_job_and_blocks_download(client: TestClient, job_store: SQLiteJobStore) -> None:
-    job_id = "cancel-active-job-regression"
-    job_dir = get_job_dir(job_id)
-    job_dir.mkdir(parents=True, exist_ok=True)
-    input_path = job_dir / "input.png"
-    input_path.write_bytes(b"not-used")
-    job_store.create_job(
-        JobMetadata(
-            job_id=job_id,
-            status="processing",
-            progress_percent=35,
-            stage="grid_recovery",
-            stage_message="Grid recovery...",
-            input_filename="input.png",
-            input_path=str(input_path.relative_to(ROOT)),
-            created_at=datetime.now(UTC),
-            updated_at=datetime.now(UTC),
+    fixture_path = ROOT / "tests" / "fixtures" / "test-jpegs-x4-90.jpg"
+    with fixture_path.open("rb") as image_file:
+        create_response = client.post(
+            "/api/jobs?scale=4",
+            files={"file": ("cancel.jpg", image_file, "image/jpeg")},
         )
-    )
+    assert create_response.status_code == 202
+    job_id = create_response.json()["job_id"]
+
+    def mark_processing(metadata: JobMetadata) -> JobMetadata:
+        metadata.status = "processing"
+        metadata.progress_percent = 35
+        metadata.stage = "grid_recovery"
+        metadata.stage_message = "Grid recovery..."
+        metadata.created_at = datetime.now(UTC)
+        metadata.updated_at = datetime.now(UTC)
+        return metadata
+
+    assert job_store.update_job(job_id, mark_processing) is not None
 
     cancel_response = client.post(f"/api/jobs/{job_id}/cancel")
 
