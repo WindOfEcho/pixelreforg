@@ -4,6 +4,18 @@ Python image-processing core for PixelReForge.
 
 Core must remain independent from API, Web UI, Docker, database, and desktop code. It exposes deterministic processing functions and data models that can be used by multiple interfaces.
 
+## Local Package
+
+Core is an installable Python package. Install it from the repository root with:
+
+```sh
+python -m pip install -e "packages/core[test]"
+```
+
+```python
+from pixelreforge_core import RestoreSettings, process_image
+```
+
 ## First restoration algorithm
 
 The first working version targets pixel art that was enlarged by an integer nearest-neighbor scale.

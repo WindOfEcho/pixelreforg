@@ -5,6 +5,13 @@ services:
       dockerfile: infra/docker/api.Dockerfile
     ports:
       - "8000:8000"
+    environment:
+      PIXELREFORGE_ENV: development
+      PIXELREFORGE_DEBUG: "true"
+      PIXELREFORGE_LOG_FORMAT: json
+      PIXELREFORGE_LOG_LEVEL: INFO
+      PIXELREFORGE_SENTRY_DSN: ${PIXELREFORGE_SENTRY_DSN:-}
+      PIXELREFORGE_SENTRY_TRACES_SAMPLE_RATE: ${PIXELREFORGE_SENTRY_TRACES_SAMPLE_RATE:-0.0}
     volumes:
       - pixelreforge-runtime:/app/runtime
 

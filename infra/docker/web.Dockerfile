@@ -1,4 +1,4 @@
-FROM node:24-slim
+FROM node:24-slim AS build
 
 WORKDIR /app/apps/web
 
@@ -6,7 +6,23 @@ COPY apps/web/package.json apps/web/package-lock.json ./
 RUN npm ci
 
 COPY apps/web ./
+RUN npm run build
 
-EXPOSE 5173
+FROM node:24-slim
 
-CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+ENV NODE_ENV=production \
+    HOST=0.0.0.0 \
+    PORT=3000
+
+WORKDIR /app/apps/web
+
+COPY apps/web/package.json apps/web/package-lock.json ./
+RUN npm ci --omit=dev
+
+COPY --from=build /app/apps/web/build ./build
+
+COPY --from=build /app/apps/web/package.json ./package.json
+
+EXPOSE 3000
+
+CMD ["node", "build"]

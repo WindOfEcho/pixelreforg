@@ -24,7 +24,8 @@ Future algorithm settings are visible as disabled controls so the layout already
 Start the API from the repository root:
 
 ```sh
-python -m uvicorn apps.api.pixelreforge_api.main:app --reload
+python -m pip install -e "packages/core[test]" -e "apps/api[test]"
+python -m uvicorn pixelreforge_api.main:app --reload
 ```
 
 Start the Web UI from `apps/web`:

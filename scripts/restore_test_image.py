@@ -1,13 +1,10 @@
 from pathlib import Path
-import sys
+
+from pixelreforge_core import RestoreSettings, process_image_file
+from pixelreforge_core.image_io import save_image
 
 
 ROOT = Path(__file__).resolve().parents[1]
-CORE_PATH = ROOT / "packages" / "core"
-sys.path.insert(0, str(CORE_PATH))
-
-from pixelreforge_core import RestoreSettings, process_image_file  # noqa: E402
-from pixelreforge_core.image_io import save_image  # noqa: E402
 
 
 INPUT_PATH = ROOT / "tests" / "fixtures" / "test-image.jpg"

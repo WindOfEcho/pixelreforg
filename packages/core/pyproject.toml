@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pixelreforge-core"
+version = "0.1.0"
+description = "Image-processing core for PixelReForge."
+readme = "README.md"
+requires-python = ">=3.13"
+license = "AGPL-3.0-or-later"
+authors = [
+  { name = "WindOfEchos" },
+]
+dependencies = [
+  "numpy>=1.26",
+  "Pillow>=10.0",
+]
+
+[project.optional-dependencies]
+test = [
+  "pytest>=8.3",
+]
+
+[tool.setuptools.packages.find]
+include = ["pixelreforge_core*"]

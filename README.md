@@ -20,11 +20,23 @@ The idea is based on the original pixeldetector project by Astropulse: https://g
 apps/
   web/      SvelteKit frontend
   api/      FastAPI backend
+    pyproject.toml
 packages/
   core/     Python image-processing core
+    pyproject.toml
 infra/
   docker/   Docker assets and deployment helpers
-docs/       Product documentation
+```
+
+## Python Setup
+
+Create and activate a project-local virtual environment from this directory, then install the Python packages in editable mode:
+
+```sh
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install -e "packages/core[test]" -e "apps/api[test]"
 ```
 
 ## Testing
@@ -32,7 +44,7 @@ docs/       Product documentation
 Run the current smoke checks from this directory:
 
 ```sh
-python -m unittest discover -s tests
+python -m pytest
 ```
 
 ## Docker Run
@@ -50,6 +62,30 @@ Stop the stack with:
 ```sh
 docker compose down
 ```
+
+## Deploy
+
+Deployment uses `docker-compose.prd.yml` with Caddy as HTTPS reverse proxy.
+
+Create `.env` from `.env.example` and set the public domain:
+
+```env
+PIXELREFORGE_DOMAIN=example.com
+PIXELREFORGE_CORS_ORIGINS=https://example.com
+PIXELREFORGE_LOG_LEVEL=INFO
+PIXELREFORGE_SENTRY_DSN=
+PIXELREFORGE_SENTRY_TRACES_SAMPLE_RATE=0.0
+```
+
+Run from `pixelreforge/`:
+
+```sh
+docker compose --env-file .env -f docker-compose.prd.yml build
+docker compose --env-file .env -f docker-compose.prd.yml up -d
+docker compose --env-file .env -f docker-compose.prd.yml ps
+```
+
+Caddy publishes only `80` and `443`, routes `/api/*` and `/health` to FastAPI, and routes the rest to the SvelteKit web container. The domain must resolve to the VPS and ports `80/443` must be reachable for Let's Encrypt certificates.
 
 ## License
 

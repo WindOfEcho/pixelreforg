@@ -4,6 +4,7 @@ import os
 
 VALID_ENVS = {"development", "production", "test"}
 VALID_LOG_FORMATS = {"json", "plain"}
+DEFAULT_CORS_ORIGINS = ("http://localhost:5173", "http://127.0.0.1:5173")
 
 
 def _read_bool(name: str, default: bool = False) -> bool:
@@ -28,6 +29,7 @@ class ApiSettings:
     log_format: str
     sentry_dsn: str | None
     sentry_traces_sample_rate: float
+    cors_origins: tuple[str, ...] = DEFAULT_CORS_ORIGINS
 
     @property
     def is_production(self) -> bool:
@@ -56,6 +58,7 @@ def load_settings() -> ApiSettings:
         log_format=log_format,
         sentry_dsn=os.getenv("PIXELREFORGE_SENTRY_DSN") or None,
         sentry_traces_sample_rate=sentry_traces_sample_rate,
+        cors_origins=_read_csv("PIXELREFORGE_CORS_ORIGINS", default=DEFAULT_CORS_ORIGINS),
     )
 
 
@@ -67,3 +70,11 @@ def _read_float(name: str, default: float) -> float:
         return float(value)
     except ValueError:
         return default
+
+
+def _read_csv(name: str, default: tuple[str, ...]) -> tuple[str, ...]:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    items = tuple(item.strip() for item in value.split(",") if item.strip())
+    return items or default

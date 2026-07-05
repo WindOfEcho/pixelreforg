@@ -1,6 +1,7 @@
 from pathlib import Path
 import json
 import logging
+import os
 import shutil
 from threading import RLock
 from typing import Callable
@@ -13,7 +14,7 @@ from .models import JobMetadata
 
 
 logger = logging.getLogger(__name__)
-ROOT = Path(__file__).resolve().parents[3]
+ROOT = Path(os.getenv("PIXELREFORGE_ROOT", Path.cwd())).resolve()
 RUNTIME_DIR = ROOT / "runtime" / "jobs"
 _job_locks: dict[str, RLock] = {}
 _job_locks_guard = RLock()

@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.10] - 2026-07-04
+
+### Added
+
+- Production Docker Compose setup with Caddy HTTPS reverse proxy (`docker-compose.prd.yml`, `infra/docker/Caddyfile`).
+- Multi-stage `web.Dockerfile` with `@sveltejs/adapter-node` serving on port 3000.
+- Configurable CORS origins via `PIXELREFORGE_CORS_ORIGINS` env var.
+- Configurable storage root via `PIXELREFORGE_ROOT` env var.
+- PEP 621 `pyproject.toml` packaging for Core and API packages.
+- Root `pyproject.toml` with pytest config.
+
+### Changed
+
+- Migrated from `requirements.txt` + `sys.path` hacks to standard editable pip installs (`pyproject.toml`).
+- All modules and tests now use direct package imports from `pixelreforge_core` and `pixelreforge_api`.
+- Switched web adapter from `@sveltejs/adapter-auto` to `@sveltejs/adapter-node` for production builds.
+- Updated all READMEs with new setup and deployment instructions.
+- API Dockerfile installs packages via pip, uses `PIXELREFORGE_ROOT` instead of `PYTHONPATH`.
+
+### Removed
+
+- `apps/api/requirements.txt` — replaced by `pyproject.toml` dependency declarations.
+
 ## [0.0.9] - 2026-07-03
 
 ### Added

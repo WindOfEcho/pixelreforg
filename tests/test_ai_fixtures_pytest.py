@@ -1,15 +1,13 @@
 from pathlib import Path
-import sys
 
 import numpy as np
 from PIL import Image
 import pytest
 
+from pixelreforge_core import RestoreSettings, process_image
+
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "packages" / "core"))
-
-from pixelreforge_core import RestoreSettings, process_image  # noqa: E402
 
 
 @pytest.mark.parametrize("fixture_name", ["test-ai-1.png", "test-ai-2.png"])

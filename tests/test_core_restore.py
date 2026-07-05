@@ -1,16 +1,14 @@
 from pathlib import Path
-import sys
 import unittest
 
 import numpy as np
 from PIL import Image
 
+from pixelreforge_core import ProcessingCancelled, RestoreSettings, process_image
+from pixelreforge_core.image_io import save_image
+
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "packages" / "core"))
-
-from pixelreforge_core import ProcessingCancelled, RestoreSettings, process_image  # noqa: E402
-from pixelreforge_core.image_io import save_image  # noqa: E402
 
 
 class CoreRestoreTests(unittest.TestCase):

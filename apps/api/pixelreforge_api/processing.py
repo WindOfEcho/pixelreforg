@@ -1,18 +1,13 @@
 from pathlib import Path
 import logging
-import sys
 import time
+
+from pixelreforge_core import ProcessingCancelled, RestoreSettings, process_image_file
+from pixelreforge_core.image_io import save_image
 
 from .logging_context import reset_request_id, set_request_id
 from .models import JobMetadata
 from .storage import ROOT, get_job_dir, read_metadata, update_metadata, write_metadata
-
-
-CORE_PATH = ROOT / "packages" / "core"
-sys.path.insert(0, str(CORE_PATH))
-
-from pixelreforge_core import ProcessingCancelled, RestoreSettings, process_image_file  # noqa: E402
-from pixelreforge_core.image_io import save_image  # noqa: E402
 
 
 logger = logging.getLogger(__name__)

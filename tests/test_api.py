@@ -1,4 +1,3 @@
-from pathlib import Path
 import json
 import sys
 import types
@@ -6,16 +5,12 @@ import types
 from fastapi.testclient import TestClient
 import pytest
 
-
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "apps" / "api"))
-
-from pixelreforge_api import app, create_app  # noqa: E402
-from pixelreforge_api.sentry_config import configure_sentry  # noqa: E402
-from pixelreforge_api.settings import ApiSettings, load_settings  # noqa: E402
-from pixelreforge_api.models import JobMetadata  # noqa: E402
-from pixelreforge_api.processing import process_job  # noqa: E402
-from pixelreforge_api.storage import get_job_dir, get_metadata_path, read_metadata, update_metadata, write_metadata  # noqa: E402
+from pixelreforge_api import app, create_app
+from pixelreforge_api.sentry_config import configure_sentry
+from pixelreforge_api.settings import ApiSettings, load_settings
+from pixelreforge_api.models import JobMetadata
+from pixelreforge_api.processing import process_job
+from pixelreforge_api.storage import ROOT, get_job_dir, get_metadata_path, read_metadata, update_metadata, write_metadata
 
 
 @pytest.fixture
@@ -62,6 +57,7 @@ def test_settings_read_runtime_mode_from_environment(monkeypatch: pytest.MonkeyP
     monkeypatch.setenv("PIXELREFORGE_LOG_LEVEL", "ERROR")
     monkeypatch.setenv("PIXELREFORGE_SENTRY_DSN", "https://public@example.invalid/1")
     monkeypatch.setenv("PIXELREFORGE_SENTRY_TRACES_SAMPLE_RATE", "0.25")
+    monkeypatch.setenv("PIXELREFORGE_CORS_ORIGINS", "https://example.com")
 
     settings = load_settings()
 
@@ -71,6 +67,7 @@ def test_settings_read_runtime_mode_from_environment(monkeypatch: pytest.MonkeyP
     assert settings.log_format == "json"
     assert settings.sentry_dsn == "https://public@example.invalid/1"
     assert settings.sentry_traces_sample_rate == 0.25
+    assert settings.cors_origins == ("https://example.com",)
 
 
 def test_sentry_is_disabled_without_dsn(caplog: pytest.LogCaptureFixture) -> None:
