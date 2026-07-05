@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.11] - 2026-07-05
+
+### Added
+
+- SQLite-backed `JobStore` with transactional CRUD, job claiming, heartbeat, stale recovery, and expired job cleanup (`pixelreforge_api/job_store.py`).
+- `JobWorker` process with `run_forever`/`run_once` modes, heartbeat loop, thread-pool concurrency, and signal handling (`pixelreforge_api/worker.py`).
+- `GET /api/jobs` endpoint to list recent jobs.
+- Job retry logic: configurable `max_attempts`, non-retryable error detection (`ValueError`, `NotImplementedError`, `ValidationError`, `UnidentifiedImageError`).
+- New settings fields: `database_url`, `job_max_attempts`, `job_timeout_seconds`, `job_ttl_seconds`, `worker_concurrency`, `worker_poll_interval_seconds`, `worker_heartbeat_interval_seconds`, `worker_id`.
+
+### Changed
+
+- Processing pipeline now receives `JobStore` and reads params from metadata rather than individual function arguments.
+- All job metadata persisted via shared SQLite database instead of per-job `metadata.json` files.
+- `cancel_requested` flag enables cancellation detection during processing without relying solely on disk status.
+- `docker-compose.yml` and `docker-compose.prd.yml` — added `worker` service, new environment variables, web port 3000.
+- Tests refactored to drive `worker.run_once()` for processing; expanded coverage for retries, non-retryable errors, list endpoint, and worker recovery.
+
+### Removed
+
+- File-based metadata I/O (`read_metadata`, `write_metadata`, `update_metadata`, metadata JSON lock) replaced by `SQLiteJobStore`.
+
 ## [0.0.10] - 2026-07-04
 
 ### Added

@@ -1,28 +1,32 @@
 import logging
 import time
+from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
-from fastapi import BackgroundTasks, FastAPI, File, HTTPException, Query, Request, UploadFile
+from fastapi import FastAPI, File, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
+from .job_store import JobStore, create_job_store
 from .logging_config import configure_logging
-from .logging_context import get_request_id, reset_request_id, set_request_id
-from .models import JobCreateResponse, JobMetadata, PaletteCleanupMode, RestoreAlgorithm, ScaleMode
-from .processing import output_file_path, process_job
+from .logging_context import reset_request_id, set_request_id
+from .models import JobCreateResponse, JobListResponse, JobMetadata, JobParameters, PaletteCleanupMode, RestoreAlgorithm, ScaleMode
+from .processing import output_file_path
 from .sentry_config import configure_sentry
-from .settings import load_settings
-from .storage import create_job, read_metadata, update_metadata
+from .settings import ApiSettings, load_settings
+from .storage import delete_job_files, save_job_input
 
 
 logger = logging.getLogger(__name__)
 
 
-def create_app() -> FastAPI:
-    settings = load_settings()
+def create_app(settings: ApiSettings | None = None, job_store: JobStore | None = None) -> FastAPI:
+    settings = settings or load_settings()
+    job_store = job_store or create_job_store(settings)
     configure_logging(settings)
     configure_sentry(settings)
     api = FastAPI(title="PixelReForge API", version="0.1.0")
+    api.state.job_store = job_store
     api.add_middleware(
         CORSMiddleware,
         allow_origins=list(settings.cors_origins),
@@ -88,9 +92,15 @@ def create_app() -> FastAPI:
     def health() -> dict[str, str]:
         return {"status": "ok"}
 
+    @api.get("/api/jobs", response_model=JobListResponse)
+    def list_processing_jobs(
+        limit: int = Query(default=50, ge=1, le=100),
+        offset: int = Query(default=0, ge=0),
+    ) -> JobListResponse:
+        return JobListResponse(jobs=job_store.list_jobs(limit=limit, offset=offset), limit=limit, offset=offset)
+
     @api.post("/api/jobs", response_model=JobCreateResponse, status_code=202)
     def create_processing_job(
-        background_tasks: BackgroundTasks,
         file: UploadFile = File(...),
         algorithm: RestoreAlgorithm = Query(default="auto"),
         scale_mode: ScaleMode = Query(default="manual"),
@@ -113,24 +123,49 @@ def create_app() -> FastAPI:
         if scale_mode == "manual" and scale is None:
             raise HTTPException(status_code=422, detail="Manual scale mode requires scale.")
 
-        metadata = create_job(file)
-        background_tasks.add_task(
-            process_job,
-            metadata.job_id,
-            algorithm,
-            scale_mode,
-            scale,
-            min_scale,
-            max_scale,
-            original_width,
-            original_height,
-            palette_cleanup,
-            palette_merge_distance,
-            palette_target_colors,
-            noisy_color_bucket_size,
-            confidence_threshold,
-            fractional_scale_step,
-            get_request_id(),
+        params = JobParameters(
+            algorithm=algorithm,
+            scale_mode=scale_mode,
+            scale=scale,
+            min_scale=min_scale,
+            max_scale=max_scale,
+            original_width=original_width,
+            original_height=original_height,
+            palette_cleanup=palette_cleanup,
+            palette_merge_distance=palette_merge_distance,
+            palette_target_colors=palette_target_colors,
+            noisy_color_bucket_size=noisy_color_bucket_size,
+            confidence_threshold=confidence_threshold,
+            fractional_scale_step=fractional_scale_step,
+        )
+        job_id = uuid4().hex
+        input_filename, input_path = save_job_input(job_id, file)
+        now = datetime.now(UTC)
+        metadata = JobMetadata(
+            job_id=job_id,
+            status="queued",
+            progress_percent=5.0,
+            stage="upload_accepted",
+            stage_message="Upload accepted.",
+            input_filename=input_filename,
+            input_path=input_path,
+            algorithm_requested=algorithm,
+            palette_cleanup=palette_cleanup,
+            attempts=0,
+            max_attempts=settings.job_max_attempts,
+            created_at=now,
+            updated_at=now,
+            expires_at=now + timedelta(seconds=settings.job_ttl_seconds),
+            params=params.model_dump(mode="json"),
+        )
+        try:
+            metadata = job_store.create_job(metadata)
+        except Exception:
+            delete_job_files(job_id)
+            raise
+        logger.info(
+            "Job created.",
+            extra={"event": "job_created", "job_id": metadata.job_id, "status": metadata.status, "input_filename": input_filename},
         )
         return JobCreateResponse(
             job_id=metadata.job_id,
@@ -141,14 +176,14 @@ def create_app() -> FastAPI:
 
     @api.get("/api/jobs/{job_id}", response_model=JobMetadata)
     def get_processing_job(job_id: str) -> JobMetadata:
-        metadata = read_metadata(job_id)
+        metadata = job_store.get_job(job_id)
         if metadata is None:
             raise HTTPException(status_code=404, detail="Job not found.")
         return metadata
 
     @api.get("/api/jobs/{job_id}/download")
     def download_processing_result(job_id: str) -> FileResponse:
-        metadata = read_metadata(job_id)
+        metadata = job_store.get_job(job_id)
         if metadata is None:
             raise HTTPException(status_code=404, detail="Job not found.")
         if metadata.status != "completed":
@@ -161,7 +196,7 @@ def create_app() -> FastAPI:
 
     @api.post("/api/jobs/{job_id}/cancel", response_model=JobMetadata)
     def cancel_processing_job(job_id: str) -> JobMetadata:
-        metadata = read_metadata(job_id)
+        metadata = job_store.get_job(job_id)
         if metadata is None:
             raise HTTPException(status_code=404, detail="Job not found.")
         if metadata.status in ("completed", "failed", "cancelled"):
@@ -169,13 +204,17 @@ def create_app() -> FastAPI:
 
         def mark_cancelled(current: JobMetadata) -> JobMetadata:
             if current.status not in ("completed", "failed", "cancelled"):
+                current.cancel_requested = True
                 current.status = "cancelled"
                 current.stage = "cancelled"
                 current.stage_message = "Restoration cancelled."
                 current.error = None
+                current.started_at = None
+                current.heartbeat_at = None
+                current.worker_id = None
             return current
 
-        metadata = update_metadata(job_id, mark_cancelled)
+        metadata = job_store.update_job(job_id, mark_cancelled)
         if metadata is None:
             raise HTTPException(status_code=404, detail="Job not found.")
         logger.info("Job cancelled.", extra={"event": "job_cancelled", "job_id": job_id, "status": metadata.status})

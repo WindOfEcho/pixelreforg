@@ -1,14 +1,9 @@
 from pathlib import Path
-import json
 import logging
 import os
 import shutil
-from threading import RLock
-from typing import Callable
-from uuid import uuid4
 
 from fastapi import UploadFile
-from pydantic import ValidationError
 
 from .models import JobMetadata
 
@@ -16,98 +11,42 @@ from .models import JobMetadata
 logger = logging.getLogger(__name__)
 ROOT = Path(os.getenv("PIXELREFORGE_ROOT", Path.cwd())).resolve()
 RUNTIME_DIR = ROOT / "runtime" / "jobs"
-_job_locks: dict[str, RLock] = {}
-_job_locks_guard = RLock()
 
 
-def create_job(file: UploadFile) -> JobMetadata:
-    job_id = uuid4().hex
-    job_dir = RUNTIME_DIR / job_id
+def save_job_input(job_id: str, file: UploadFile) -> tuple[str, str]:
+    job_dir = get_job_dir(job_id)
     job_dir.mkdir(parents=True, exist_ok=False)
 
-    filename = Path(file.filename or "input").name
+    filename = Path(file.filename or "input").name or "input"
     input_path = job_dir / filename
     with input_path.open("wb") as output:
         shutil.copyfileobj(file.file, output)
 
-    metadata = JobMetadata(
-        job_id=job_id,
-        status="queued",
-        progress_percent=5.0,
-        stage="upload_accepted",
-        stage_message="Upload accepted.",
-        input_filename=filename,
-        input_path=str(input_path.relative_to(ROOT)),
-    )
-    write_metadata(metadata)
     logger.info(
-        "Job created.",
+        "Job input saved.",
         extra={
-            "event": "job_created",
+            "event": "job_input_saved",
             "job_id": job_id,
-            "status": metadata.status,
             "input_filename": filename,
             "content_type": file.content_type,
         },
     )
-    return metadata
+    return filename, str(input_path.relative_to(ROOT))
 
 
 def get_job_dir(job_id: str) -> Path:
     return RUNTIME_DIR / job_id
 
 
-def get_metadata_path(job_id: str) -> Path:
-    return get_job_dir(job_id) / "metadata.json"
-
-
-def read_metadata(job_id: str) -> JobMetadata | None:
-    with _job_lock(job_id):
-        return _read_metadata_unlocked(job_id)
-
-
-def write_metadata(metadata: JobMetadata) -> None:
-    with _job_lock(metadata.job_id):
-        _write_metadata_unlocked(metadata)
-
-
-def update_metadata(job_id: str, update: Callable[[JobMetadata], JobMetadata]) -> JobMetadata | None:
-    with _job_lock(job_id):
-        metadata = _read_metadata_unlocked(job_id)
-        if metadata is None:
-            return None
-        metadata = update(metadata)
-        _write_metadata_unlocked(metadata)
-        return metadata
-
-
-def _job_lock(job_id: str) -> RLock:
-    with _job_locks_guard:
-        if job_id not in _job_locks:
-            _job_locks[job_id] = RLock()
-        return _job_locks[job_id]
-
-
-def _read_metadata_unlocked(job_id: str) -> JobMetadata | None:
-    metadata_path = get_metadata_path(job_id)
-    if not metadata_path.exists():
+def output_file_path(metadata: JobMetadata) -> Path | None:
+    if metadata.output_path is None:
         return None
-    try:
-        return JobMetadata.model_validate_json(metadata_path.read_text(encoding="utf-8"))
-    except ValidationError as exc:
-        logger.warning(
-            "Job metadata is unreadable.",
-            extra={"event": "job_metadata_unreadable", "job_id": job_id, "error_type": type(exc).__name__},
-        )
-        return None
+    return ROOT / metadata.output_path
 
 
-def _write_metadata_unlocked(metadata: JobMetadata) -> None:
-    metadata_path = get_metadata_path(metadata.job_id)
-    metadata_path.parent.mkdir(parents=True, exist_ok=True)
-    temp_path = metadata_path.with_suffix(".json.tmp")
-    temp_path.write_text(
-        json.dumps(metadata.model_dump(), ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
-    temp_path.replace(metadata_path)
+def output_file_path_for_job(job_id: str) -> Path:
+    return get_job_dir(job_id) / "output.png"
+
+
+def delete_job_files(job_id: str) -> None:
+    shutil.rmtree(get_job_dir(job_id), ignore_errors=True)

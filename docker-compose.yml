@@ -12,15 +12,42 @@ services:
       PIXELREFORGE_LOG_LEVEL: INFO
       PIXELREFORGE_SENTRY_DSN: ${PIXELREFORGE_SENTRY_DSN:-}
       PIXELREFORGE_SENTRY_TRACES_SAMPLE_RATE: ${PIXELREFORGE_SENTRY_TRACES_SAMPLE_RATE:-0.0}
+      PIXELREFORGE_DATABASE_URL: sqlite:////app/runtime/pixelreforge.sqlite3
+      PIXELREFORGE_JOB_MAX_ATTEMPTS: ${PIXELREFORGE_JOB_MAX_ATTEMPTS:-3}
+      PIXELREFORGE_JOB_TIMEOUT_SECONDS: ${PIXELREFORGE_JOB_TIMEOUT_SECONDS:-1800}
+      PIXELREFORGE_JOB_TTL_SECONDS: ${PIXELREFORGE_JOB_TTL_SECONDS:-86400}
     volumes:
       - pixelreforge-runtime:/app/runtime
+
+  worker:
+    build:
+      context: .
+      dockerfile: infra/docker/api.Dockerfile
+    command: ["python", "-m", "pixelreforge_api.worker"]
+    environment:
+      PIXELREFORGE_ENV: development
+      PIXELREFORGE_DEBUG: "true"
+      PIXELREFORGE_LOG_FORMAT: json
+      PIXELREFORGE_LOG_LEVEL: INFO
+      PIXELREFORGE_SENTRY_DSN: ${PIXELREFORGE_SENTRY_DSN:-}
+      PIXELREFORGE_SENTRY_TRACES_SAMPLE_RATE: ${PIXELREFORGE_SENTRY_TRACES_SAMPLE_RATE:-0.0}
+      PIXELREFORGE_DATABASE_URL: sqlite:////app/runtime/pixelreforge.sqlite3
+      PIXELREFORGE_JOB_MAX_ATTEMPTS: ${PIXELREFORGE_JOB_MAX_ATTEMPTS:-3}
+      PIXELREFORGE_JOB_TIMEOUT_SECONDS: ${PIXELREFORGE_JOB_TIMEOUT_SECONDS:-1800}
+      PIXELREFORGE_JOB_TTL_SECONDS: ${PIXELREFORGE_JOB_TTL_SECONDS:-86400}
+      PIXELREFORGE_WORKER_CONCURRENCY: ${PIXELREFORGE_WORKER_CONCURRENCY:-1}
+      PIXELREFORGE_WORKER_ID: ${PIXELREFORGE_WORKER_ID:-default}
+    volumes:
+      - pixelreforge-runtime:/app/runtime
+    depends_on:
+      - api
 
   web:
     build:
       context: .
       dockerfile: infra/docker/web.Dockerfile
     ports:
-      - "5173:5173"
+      - "5173:3000"
     environment:
       PUBLIC_API_BASE_URL: http://localhost:8000
     depends_on:

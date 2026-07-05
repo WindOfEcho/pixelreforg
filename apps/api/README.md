@@ -2,7 +2,7 @@
 
 FastAPI backend for PixelReForge.
 
-The API accepts image uploads, creates processing jobs, reports progress, serves previews, and returns completed results. Image processing must be delegated to `packages/core`.
+The API accepts image uploads, creates processing jobs, reports progress, serves previews, and returns completed results. Image processing is delegated to `packages/core` through a separate worker process.
 
 ## Local Run
 
@@ -26,19 +26,34 @@ Run the API from the repository root:
 python -m uvicorn pixelreforge_api.main:app --reload
 ```
 
+Run the worker in a second shell:
+
+```sh
+python -m pixelreforge_api.worker
+```
+
 Or run it through Docker Compose from the repository root:
 
 ```sh
-docker compose up --build api
+docker compose up --build api worker
 ```
 
 Available endpoints:
 
 - `GET /health`
 - `POST /api/jobs?scale=4` with multipart field `file`
+- `GET /api/jobs`
 - `GET /api/jobs/{job_id}`
 - `GET /api/jobs/{job_id}/download`
 
-The first implementation stores files under `runtime/jobs/<job_id>/` and processes jobs with FastAPI `BackgroundTasks`. The default `scale=4` keeps the current real JPEG fixture usable while auto scale detection continues to be developed in Core.
+The API stores uploads and results under `runtime/jobs/<job_id>/`. Job state is stored in a SQLite-backed `JobStore` at `runtime/pixelreforge.sqlite3` by default. `POST /api/jobs` only creates a `queued` job; the worker claims queued jobs and executes processing.
 
 Runtime files are resolved from the current working directory by default. Set `PIXELREFORGE_ROOT` when the API is launched from another directory.
+
+Useful job settings:
+
+- `PIXELREFORGE_DATABASE_URL`, default `sqlite:///<PIXELREFORGE_ROOT>/runtime/pixelreforge.sqlite3`
+- `PIXELREFORGE_JOB_MAX_ATTEMPTS`, default `3`
+- `PIXELREFORGE_JOB_TIMEOUT_SECONDS`, default `1800`
+- `PIXELREFORGE_JOB_TTL_SECONDS`, default `86400`
+- `PIXELREFORGE_WORKER_CONCURRENCY`, default `1`

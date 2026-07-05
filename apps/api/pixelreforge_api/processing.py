@@ -2,37 +2,23 @@ from pathlib import Path
 import logging
 import time
 
+from pydantic import ValidationError
 from pixelreforge_core import ProcessingCancelled, RestoreSettings, process_image_file
 from pixelreforge_core.image_io import save_image
 
+from .job_store import JobStore
 from .logging_context import reset_request_id, set_request_id
-from .models import JobMetadata
-from .storage import ROOT, get_job_dir, read_metadata, update_metadata, write_metadata
+from .models import JobMetadata, JobParameters
+from .storage import ROOT, output_file_path_for_job
 
 
 logger = logging.getLogger(__name__)
 
 
-def process_job(
-    job_id: str,
-    algorithm: str = "auto",
-    scale_mode: str = "manual",
-    manual_scale: float | None = 4,
-    min_scale: int = 2,
-    max_scale: int = 16,
-    original_width: int | None = None,
-    original_height: int | None = None,
-    palette_cleanup: str = "off",
-    palette_merge_distance: float | None = None,
-    palette_target_colors: int | None = None,
-    noisy_color_bucket_size: int = 16,
-    confidence_threshold: float = 0.45,
-    fractional_scale_step: float = 0.25,
-    request_id: str | None = None,
-) -> None:
+def process_job(job_id: str, store: JobStore, request_id: str | None = None) -> None:
     token = set_request_id(request_id) if request_id is not None else None
     started = time.perf_counter()
-    metadata = read_metadata(job_id)
+    metadata = store.get_job(job_id)
     if metadata is None:
         logger.warning("Job metadata missing.", extra={"event": "job_metadata_missing", "job_id": job_id})
         if token is not None:
@@ -40,123 +26,122 @@ def process_job(
         return
 
     try:
-        if metadata.status == "cancelled":
-            logger.info("Job was already cancelled.", extra={"event": "job_cancelled", "job_id": job_id, "status": metadata.status})
+        if metadata.status == "cancelled" or metadata.cancel_requested:
+            _mark_cancelled(store, job_id, metadata)
+            logger.info("Job was already cancelled.", extra={"event": "job_cancelled", "job_id": job_id, "status": "cancelled"})
             return
+
+        params = JobParameters.model_validate(metadata.params)
         logger.info("Job processing started.", extra={"event": "job_processing_started", "job_id": job_id, "status": metadata.status})
-        metadata.status = "processing"
-        metadata.progress_percent = 10.0
-        metadata.stage = "preflight"
-        metadata.stage_message = "Preflight analysis..."
-        write_metadata(metadata)
-        logger.info("Job status changed.", extra={"event": "job_status_changed", "job_id": job_id, "status": metadata.status, "stage": "processing"})
+        _set_progress(store, job_id, "preflight", 10.0, "Preflight analysis...")
 
         input_path = ROOT / metadata.input_path
-        output_path = get_job_dir(job_id) / "output.png"
+        output_path = output_file_path_for_job(job_id)
         settings = RestoreSettings(
-            algorithm=algorithm,
-            scale_mode=scale_mode,
-            manual_scale_x=manual_scale,
-            manual_scale_y=manual_scale,
-            min_scale=min_scale,
-            max_scale=max_scale,
-            original_width=original_width,
-            original_height=original_height,
-            palette_cleanup=palette_cleanup,
-            palette_merge_distance=palette_merge_distance,
-            palette_target_colors=palette_target_colors,
-            noisy_color_bucket_size=noisy_color_bucket_size,
-            confidence_threshold=confidence_threshold,
-            fractional_scale_step=fractional_scale_step,
+            algorithm=params.algorithm,
+            scale_mode=params.scale_mode,
+            manual_scale_x=params.scale,
+            manual_scale_y=params.scale,
+            min_scale=params.min_scale,
+            max_scale=params.max_scale,
+            original_width=params.original_width,
+            original_height=params.original_height,
+            palette_cleanup=params.palette_cleanup,
+            palette_merge_distance=params.palette_merge_distance,
+            palette_target_colors=params.palette_target_colors,
+            noisy_color_bucket_size=params.noisy_color_bucket_size,
+            confidence_threshold=params.confidence_threshold,
+            fractional_scale_step=params.fractional_scale_step,
         )
-        result = process_image_file(input_path, settings, progress=_progress_callback(job_id), cancel=_cancel_callback(job_id))
-        latest_metadata = read_metadata(job_id)
-        if latest_metadata is not None and latest_metadata.status == "cancelled":
-            logger.info("Job cancelled after processing.", extra={"event": "job_cancelled", "job_id": job_id, "status": latest_metadata.status, "stage": "after_processing"})
-            return
-        _set_progress(job_id, "save_result", 95.0, "Saving result...")
-        save_image(result.image, output_path)
-        metadata = read_metadata(job_id) or metadata
-        if metadata.status == "cancelled":
-            logger.info("Job cancelled after saving.", extra={"event": "job_cancelled", "job_id": job_id, "status": metadata.status, "stage": "after_saving"})
+        result = process_image_file(input_path, settings, progress=_progress_callback(job_id, store), cancel=_cancel_callback(job_id, store))
+        latest_metadata = store.get_job(job_id)
+        if latest_metadata is not None and (latest_metadata.status == "cancelled" or latest_metadata.cancel_requested):
+            _mark_cancelled(store, job_id, latest_metadata)
+            logger.info("Job cancelled after processing.", extra={"event": "job_cancelled", "job_id": job_id, "status": "cancelled", "stage": "after_processing"})
             return
 
-        metadata.status = "completed"
-        metadata.progress_percent = 100.0
-        metadata.stage = "completed"
-        metadata.stage_message = "Restoration complete."
-        metadata.output_path = str(output_path.relative_to(ROOT))
-        metadata.algorithm_requested = result.algorithm_requested
-        metadata.algorithm_used = result.algorithm_used
-        metadata.algorithm_version = result.algorithm_version
-        metadata.source_size = result.source_size
-        metadata.target_size = result.target_size
-        metadata.original_size_override = result.original_size_override
-        metadata.scale_x = result.scale.scale_x
-        metadata.scale_y = result.scale.scale_y
-        metadata.scale_method = result.scale.method
-        metadata.confidence = result.scale.confidence
-        metadata.palette_cleanup = result.palette_cleanup
-        metadata.analysis = result.analysis
-        metadata.palette = result.palette
-        metadata.reconstruction = result.reconstruction
-        metadata.warnings = list(result.warnings)
-        metadata.error = None
-        write_metadata(metadata)
+        _set_progress(store, job_id, "save_result", 95.0, "Saving result...")
+        save_image(result.image, output_path)
+        metadata = store.get_job(job_id) or metadata
+        if metadata.status == "cancelled" or metadata.cancel_requested:
+            _mark_cancelled(store, job_id, metadata)
+            logger.info("Job cancelled after saving.", extra={"event": "job_cancelled", "job_id": job_id, "status": "cancelled", "stage": "after_saving"})
+            return
+
+        def complete(current: JobMetadata) -> JobMetadata:
+            current.status = "completed"
+            current.progress_percent = 100.0
+            current.stage = "completed"
+            current.stage_message = "Restoration complete."
+            current.output_path = str(output_path.relative_to(ROOT))
+            current.algorithm_requested = result.algorithm_requested
+            current.algorithm_used = result.algorithm_used
+            current.algorithm_version = result.algorithm_version
+            current.source_size = result.source_size
+            current.target_size = result.target_size
+            current.original_size_override = result.original_size_override
+            current.scale_x = result.scale.scale_x
+            current.scale_y = result.scale.scale_y
+            current.scale_method = result.scale.method
+            current.confidence = result.scale.confidence
+            current.palette_cleanup = result.palette_cleanup
+            current.analysis = result.analysis
+            current.palette = result.palette
+            current.reconstruction = result.reconstruction
+            current.warnings = list(result.warnings)
+            current.error = None
+            current.last_error = None
+            current.started_at = None
+            current.heartbeat_at = None
+            current.worker_id = None
+            return current
+
+        completed_metadata = store.update_job(job_id, complete) or metadata
         duration_ms = round((time.perf_counter() - started) * 1000, 2)
         logger.info(
             "Job processing completed.",
             extra={
                 "event": "job_processing_completed",
                 "job_id": job_id,
-                "status": metadata.status,
+                "status": completed_metadata.status,
                 "stage": "completed",
                 "duration_ms": duration_ms,
-                "algorithm_used": metadata.algorithm_used,
-                "scale_x": metadata.scale_x,
-                "scale_y": metadata.scale_y,
-                "source_size": metadata.source_size,
-                "target_size": metadata.target_size,
-                "resize_method": (metadata.reconstruction or {}).get("resize_method"),
-                "warnings_count": len(metadata.warnings),
+                "algorithm_used": completed_metadata.algorithm_used,
+                "scale_x": completed_metadata.scale_x,
+                "scale_y": completed_metadata.scale_y,
+                "source_size": completed_metadata.source_size,
+                "target_size": completed_metadata.target_size,
+                "resize_method": (completed_metadata.reconstruction or {}).get("resize_method"),
+                "warnings_count": len(completed_metadata.warnings),
             },
         )
     except ProcessingCancelled:
-        latest_metadata = read_metadata(job_id) or metadata
-        latest_metadata.status = "cancelled"
-        latest_metadata.progress_percent = min(latest_metadata.progress_percent, 99.0)
-        latest_metadata.stage = "cancelled"
-        latest_metadata.stage_message = "Restoration cancelled."
-        latest_metadata.error = None
-        write_metadata(latest_metadata)
+        latest_metadata = store.get_job(job_id) or metadata
+        _mark_cancelled(store, job_id, latest_metadata)
         duration_ms = round((time.perf_counter() - started) * 1000, 2)
         logger.info(
             "Job processing cancelled.",
-            extra={"event": "job_processing_cancelled", "job_id": job_id, "status": latest_metadata.status, "stage": "cancelled", "duration_ms": duration_ms},
+            extra={"event": "job_processing_cancelled", "job_id": job_id, "status": "cancelled", "stage": "cancelled", "duration_ms": duration_ms},
         )
-    except Exception as exc:  # pragma: no cover - metadata path is tested through API failures later.
-        latest_metadata = read_metadata(job_id)
-        if latest_metadata is not None and latest_metadata.status == "cancelled":
-            latest_metadata.error = None
-            latest_metadata.stage = "cancelled"
-            latest_metadata.stage_message = "Restoration cancelled."
-            write_metadata(latest_metadata)
+    except Exception as exc:  # pragma: no cover - detailed branches are covered through worker tests.
+        latest_metadata = store.get_job(job_id)
+        if latest_metadata is not None and (latest_metadata.status == "cancelled" or latest_metadata.cancel_requested):
+            _mark_cancelled(store, job_id, latest_metadata)
             return
-        metadata.status = "failed"
-        metadata.stage = "failed"
-        metadata.stage_message = "Restoration failed."
-        metadata.error = str(exc)
-        write_metadata(metadata)
+
+        failed_metadata = _record_failure(store, job_id, metadata, exc)
         duration_ms = round((time.perf_counter() - started) * 1000, 2)
         logger.exception(
             "Job processing failed.",
             extra={
                 "event": "job_processing_failed",
                 "job_id": job_id,
-                "status": metadata.status,
-                "stage": "failed",
+                "status": failed_metadata.status,
+                "stage": failed_metadata.stage,
                 "duration_ms": duration_ms,
                 "error_type": type(exc).__name__,
+                "attempts": failed_metadata.attempts,
+                "max_attempts": failed_metadata.max_attempts,
             },
         )
     finally:
@@ -170,14 +155,14 @@ def output_file_path(metadata: JobMetadata) -> Path | None:
     return ROOT / metadata.output_path
 
 
-def _progress_callback(job_id: str):  # type: ignore[no-untyped-def]
+def _progress_callback(job_id: str, store: JobStore):  # type: ignore[no-untyped-def]
     def progress(stage: str, percent: float, message: str) -> None:
-        _set_progress(job_id, stage, percent, message)
+        _set_progress(store, job_id, stage, percent, message)
 
     return progress
 
 
-def _set_progress(job_id: str, stage: str, percent: float, message: str) -> None:
+def _set_progress(store: JobStore, job_id: str, stage: str, percent: float, message: str) -> None:
     def update(metadata: JobMetadata) -> JobMetadata:
         if metadata.status in ("completed", "failed", "cancelled"):
             return metadata
@@ -187,12 +172,55 @@ def _set_progress(job_id: str, stage: str, percent: float, message: str) -> None
         metadata.stage_message = message
         return metadata
 
-    update_metadata(job_id, update)
+    store.update_job(job_id, update)
 
 
-def _cancel_callback(job_id: str):  # type: ignore[no-untyped-def]
+def _cancel_callback(job_id: str, store: JobStore):  # type: ignore[no-untyped-def]
     def cancel() -> bool:
-        metadata = read_metadata(job_id)
-        return metadata is not None and metadata.status == "cancelled"
+        metadata = store.get_job(job_id)
+        return metadata is not None and (metadata.status == "cancelled" or metadata.cancel_requested)
 
     return cancel
+
+
+def _mark_cancelled(store: JobStore, job_id: str, fallback: JobMetadata) -> JobMetadata:
+    def update(metadata: JobMetadata) -> JobMetadata:
+        metadata.status = "cancelled"
+        metadata.progress_percent = min(metadata.progress_percent, 99.0)
+        metadata.stage = "cancelled"
+        metadata.stage_message = "Restoration cancelled."
+        metadata.error = None
+        metadata.started_at = None
+        metadata.heartbeat_at = None
+        metadata.worker_id = None
+        return metadata
+
+    return store.update_job(job_id, update) or fallback
+
+
+def _record_failure(store: JobStore, job_id: str, fallback: JobMetadata, exc: Exception) -> JobMetadata:
+    retryable = not _is_non_retryable_error(exc)
+    error_message = str(exc)
+
+    def update(metadata: JobMetadata) -> JobMetadata:
+        metadata.last_error = error_message
+        metadata.started_at = None
+        metadata.heartbeat_at = None
+        metadata.worker_id = None
+        if retryable and metadata.attempts < metadata.max_attempts:
+            metadata.status = "queued"
+            metadata.stage = "queued"
+            metadata.stage_message = "Queued for retry."
+            metadata.error = None
+        else:
+            metadata.status = "failed"
+            metadata.stage = "failed"
+            metadata.stage_message = "Restoration failed."
+            metadata.error = error_message
+        return metadata
+
+    return store.update_job(job_id, update) or fallback
+
+
+def _is_non_retryable_error(exc: Exception) -> bool:
+    return isinstance(exc, (ValueError, NotImplementedError, ValidationError)) or type(exc).__name__ == "UnidentifiedImageError"

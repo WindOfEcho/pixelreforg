@@ -1,21 +1,52 @@
 import json
 import sys
 import types
+from dataclasses import replace
+from datetime import UTC, datetime
 
 from fastapi.testclient import TestClient
 import pytest
 
-from pixelreforge_api import app, create_app
+from pixelreforge_api import create_app
+from pixelreforge_api.job_store import SQLiteJobStore
 from pixelreforge_api.sentry_config import configure_sentry
 from pixelreforge_api.settings import ApiSettings, load_settings
 from pixelreforge_api.models import JobMetadata
-from pixelreforge_api.processing import process_job
-from pixelreforge_api.storage import ROOT, get_job_dir, get_metadata_path, read_metadata, update_metadata, write_metadata
+from pixelreforge_api.storage import ROOT, get_job_dir
+from pixelreforge_api.worker import JobWorker
 
 
 @pytest.fixture
-def client() -> TestClient:
-    return TestClient(app)
+def api_settings(tmp_path) -> ApiSettings:
+    return replace(
+        load_settings(),
+        database_url=f"sqlite:///{tmp_path / 'jobs.sqlite3'}",
+        job_timeout_seconds=1,
+        worker_heartbeat_interval_seconds=0.1,
+        worker_id="test-worker",
+    )
+
+
+@pytest.fixture
+def job_store(api_settings: ApiSettings) -> SQLiteJobStore:
+    return SQLiteJobStore(api_settings.database_url)
+
+
+@pytest.fixture
+def worker(api_settings: ApiSettings, job_store: SQLiteJobStore) -> JobWorker:
+    return JobWorker(job_store, api_settings)
+
+
+@pytest.fixture
+def client(api_settings: ApiSettings, job_store: SQLiteJobStore) -> TestClient:
+    return TestClient(create_app(settings=api_settings, job_store=job_store))
+
+
+def run_worker_until_idle(worker: JobWorker, max_runs: int = 10) -> int:
+    runs = 0
+    while runs < max_runs and worker.run_once():
+        runs += 1
+    return runs
 
 
 def test_health_returns_ok(client: TestClient) -> None:
@@ -130,7 +161,7 @@ def test_sentry_is_configured_with_dsn(monkeypatch: pytest.MonkeyPatch, caplog: 
     assert any(record.event == "sentry_configured" for record in caplog.records)
 
 
-def test_create_job_processes_fixture_and_downloads_result(client: TestClient) -> None:
+def test_create_job_processes_fixture_and_downloads_result(client: TestClient, worker: JobWorker) -> None:
     fixture_path = ROOT / "tests" / "fixtures" / "test-jpegs-x4-90.jpg"
 
     with fixture_path.open("rb") as image_file:
@@ -142,6 +173,9 @@ def test_create_job_processes_fixture_and_downloads_result(client: TestClient) -
     assert create_response.status_code == 202
     create_payload = create_response.json()
     job_id = create_payload["job_id"]
+    assert create_payload["status"] == "queued"
+
+    assert worker.run_once() is True
 
     status_response = client.get(f"/api/jobs/{job_id}")
     assert status_response.status_code == 200
@@ -166,7 +200,7 @@ def test_create_job_processes_fixture_and_downloads_result(client: TestClient) -
     assert download_response.content.startswith(b"\x89PNG")
 
 
-def test_auto_algorithm_records_recommendation_and_fallback(client: TestClient) -> None:
+def test_auto_algorithm_records_recommendation_and_fallback(client: TestClient, worker: JobWorker) -> None:
     fixture_path = ROOT / "tests" / "fixtures" / "test-jpegs-x4-60.jpg"
 
     with fixture_path.open("rb") as image_file:
@@ -177,6 +211,7 @@ def test_auto_algorithm_records_recommendation_and_fallback(client: TestClient) 
 
     assert create_response.status_code == 202
     job_id = create_response.json()["job_id"]
+    assert worker.run_once() is True
 
     metadata = client.get(f"/api/jobs/{job_id}").json()
     assert metadata["algorithm_requested"] == "auto"
@@ -188,7 +223,7 @@ def test_auto_algorithm_records_recommendation_and_fallback(client: TestClient) 
     assert metadata["analysis"]["recommended_algorithm"] == "noisy-pixel-v1"
 
 
-def test_explicit_noisy_pixel_algorithm_processes_fixture(client: TestClient) -> None:
+def test_explicit_noisy_pixel_algorithm_processes_fixture(client: TestClient, worker: JobWorker) -> None:
     fixture_path = ROOT / "tests" / "fixtures" / "test-jpegs-x10-60.jpg"
 
     with fixture_path.open("rb") as image_file:
@@ -199,6 +234,7 @@ def test_explicit_noisy_pixel_algorithm_processes_fixture(client: TestClient) ->
 
     assert create_response.status_code == 202
     job_id = create_response.json()["job_id"]
+    assert worker.run_once() is True
 
     metadata = client.get(f"/api/jobs/{job_id}").json()
     assert metadata["status"] == "completed"
@@ -207,7 +243,7 @@ def test_explicit_noisy_pixel_algorithm_processes_fixture(client: TestClient) ->
     assert metadata["palette"]["cleanup_applied"] is True
 
 
-def test_explicit_ai_pixel_v2_algorithm_processes_fixture(client: TestClient) -> None:
+def test_explicit_ai_pixel_v2_algorithm_processes_fixture(client: TestClient, worker: JobWorker) -> None:
     fixture_path = ROOT / "tests" / "fixtures" / "test-ai-2.png"
 
     with fixture_path.open("rb") as image_file:
@@ -218,6 +254,7 @@ def test_explicit_ai_pixel_v2_algorithm_processes_fixture(client: TestClient) ->
 
     assert create_response.status_code == 202
     job_id = create_response.json()["job_id"]
+    assert worker.run_once() is True
 
     metadata = client.get(f"/api/jobs/{job_id}").json()
     assert metadata["status"] == "completed"
@@ -227,7 +264,12 @@ def test_explicit_ai_pixel_v2_algorithm_processes_fixture(client: TestClient) ->
     assert metadata["reconstruction"]["artifact_cleanup"] == "isolated-pixel-neighborhood"
 
 
-def test_processing_failure_is_logged_with_job_id(client: TestClient, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
+def test_processing_failure_retries_until_max_attempts(
+    client: TestClient,
+    worker: JobWorker,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     fixture_path = ROOT / "tests" / "fixtures" / "test-jpegs-x4-90.jpg"
 
     def fail_processing(*args, **kwargs):  # type: ignore[no-untyped-def]
@@ -243,34 +285,119 @@ def test_processing_failure_is_logged_with_job_id(client: TestClient, monkeypatc
 
     assert create_response.status_code == 202
     job_id = create_response.json()["job_id"]
+    assert run_worker_until_idle(worker, max_runs=5) == 3
+
     metadata = client.get(f"/api/jobs/{job_id}").json()
     assert metadata["status"] == "failed"
+    assert metadata["attempts"] == 3
+    assert metadata["max_attempts"] == 3
+    assert metadata["last_error"] == "forced failure"
     failed = [record for record in caplog.records if record.event == "job_processing_failed"]
-    assert len(failed) == 1
-    assert failed[0].job_id == job_id
-    assert failed[0].error_type == "RuntimeError"
+    assert len(failed) == 3
+    assert all(record.job_id == job_id for record in failed)
+    assert all(record.error_type == "RuntimeError" for record in failed)
 
 
-def test_empty_metadata_file_returns_not_found(client: TestClient, caplog: pytest.LogCaptureFixture) -> None:
-    job_id = "empty-metadata-regression"
-    metadata_path = get_metadata_path(job_id)
-    metadata_path.parent.mkdir(parents=True, exist_ok=True)
-    metadata_path.write_text("", encoding="utf-8")
-    caplog.set_level("WARNING", logger="pixelreforge_api.storage")
+def test_validation_failure_is_not_retried(
+    client: TestClient,
+    worker: JobWorker,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fixture_path = ROOT / "tests" / "fixtures" / "test-jpegs-x4-90.jpg"
 
-    response = client.get(f"/api/jobs/{job_id}")
+    def fail_validation(*args, **kwargs):  # type: ignore[no-untyped-def]
+        raise ValueError("invalid input image")
+
+    monkeypatch.setattr("pixelreforge_api.processing.process_image_file", fail_validation)
+    with fixture_path.open("rb") as image_file:
+        create_response = client.post(
+            "/api/jobs?scale=4",
+            files={"file": ("test-jpegs-x4-90.jpg", image_file, "image/jpeg")},
+        )
+
+    assert create_response.status_code == 202
+    job_id = create_response.json()["job_id"]
+    assert worker.run_once() is True
+    assert worker.run_once() is False
+
+    metadata = client.get(f"/api/jobs/{job_id}").json()
+    assert metadata["status"] == "failed"
+    assert metadata["attempts"] == 1
+    assert metadata["last_error"] == "invalid input image"
+
+
+def test_missing_job_returns_not_found(client: TestClient) -> None:
+    response = client.get("/api/jobs/missing-job")
 
     assert response.status_code == 404
-    assert any(record.event == "job_metadata_unreadable" for record in caplog.records)
 
 
-def test_cancel_endpoint_marks_active_job_and_blocks_download(client: TestClient) -> None:
+def test_list_jobs_returns_recent_queued_jobs(client: TestClient) -> None:
+    fixture_path = ROOT / "tests" / "fixtures" / "test-jpegs-x4-90.jpg"
+    with fixture_path.open("rb") as image_file:
+        first_response = client.post(
+            "/api/jobs?scale=4",
+            files={"file": ("first.jpg", image_file, "image/jpeg")},
+        )
+    with fixture_path.open("rb") as image_file:
+        second_response = client.post(
+            "/api/jobs?scale=4",
+            files={"file": ("second.jpg", image_file, "image/jpeg")},
+        )
+
+    response = client.get("/api/jobs?limit=10")
+
+    assert first_response.status_code == 202
+    assert second_response.status_code == 202
+    assert response.status_code == 200
+    payload = response.json()
+    job_ids = [job["job_id"] for job in payload["jobs"]]
+    assert second_response.json()["job_id"] in job_ids
+    assert first_response.json()["job_id"] in job_ids
+
+
+def test_worker_recovery_requeues_interrupted_processing_job(worker: JobWorker, job_store: SQLiteJobStore) -> None:
+    job_id = "interrupted-processing-job"
+    job_dir = get_job_dir(job_id)
+    job_dir.mkdir(parents=True, exist_ok=True)
+    input_path = job_dir / "input.png"
+    input_path.write_bytes(b"not-used")
+    now = datetime.now(UTC)
+    job_store.create_job(
+        JobMetadata(
+            job_id=job_id,
+            status="processing",
+            attempts=1,
+            max_attempts=3,
+            progress_percent=50,
+            stage="grid_recovery",
+            stage_message="Grid recovery...",
+            input_filename="input.png",
+            input_path=str(input_path.relative_to(ROOT)),
+            started_at=now,
+            heartbeat_at=now,
+            created_at=now,
+            updated_at=now,
+            worker_id="test-worker",
+        )
+    )
+
+    worker.recover()
+
+    metadata = job_store.get_job(job_id)
+    assert metadata is not None
+    assert metadata.status == "queued"
+    assert metadata.attempts == 1
+    assert metadata.last_error == "Worker was interrupted."
+
+
+def test_cancel_endpoint_marks_active_job_and_blocks_download(client: TestClient, job_store: SQLiteJobStore) -> None:
     job_id = "cancel-active-job-regression"
     job_dir = get_job_dir(job_id)
     job_dir.mkdir(parents=True, exist_ok=True)
     input_path = job_dir / "input.png"
     input_path.write_bytes(b"not-used")
-    write_metadata(
+    job_store.create_job(
         JobMetadata(
             job_id=job_id,
             status="processing",
@@ -279,6 +406,8 @@ def test_cancel_endpoint_marks_active_job_and_blocks_download(client: TestClient
             stage_message="Grid recovery...",
             input_filename="input.png",
             input_path=str(input_path.relative_to(ROOT)),
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
         )
     )
 
@@ -287,24 +416,31 @@ def test_cancel_endpoint_marks_active_job_and_blocks_download(client: TestClient
     assert cancel_response.status_code == 200
     metadata = cancel_response.json()
     assert metadata["status"] == "cancelled"
+    assert metadata["cancel_requested"] is True
     assert metadata["stage"] == "cancelled"
     assert metadata["stage_message"] == "Restoration cancelled."
     download_response = client.get(f"/api/jobs/{job_id}/download")
     assert download_response.status_code == 409
 
 
-def test_process_job_records_progress_and_preserves_cancelled_status(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_process_job_records_progress_and_preserves_cancelled_status(
+    worker: JobWorker,
+    job_store: SQLiteJobStore,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     job_id = "processing-cancel-regression"
     job_dir = get_job_dir(job_id)
     job_dir.mkdir(parents=True, exist_ok=True)
     input_path = job_dir / "input.png"
     input_path.write_bytes(b"not-used")
-    write_metadata(
+    job_store.create_job(
         JobMetadata(
             job_id=job_id,
             status="queued",
             input_filename="input.png",
             input_path=str(input_path.relative_to(ROOT)),
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
         )
     )
 
@@ -315,7 +451,7 @@ def test_process_job_records_progress_and_preserves_cancelled_status(monkeypatch
             metadata.status = "cancelled"
             return metadata
 
-        update_metadata(job_id, mark_cancelled)
+        job_store.update_job(job_id, mark_cancelled)
         assert cancel()
         from pixelreforge_core import ProcessingCancelled
 
@@ -323,9 +459,9 @@ def test_process_job_records_progress_and_preserves_cancelled_status(monkeypatch
 
     monkeypatch.setattr("pixelreforge_api.processing.process_image_file", cancel_during_processing)
 
-    process_job(job_id)
+    assert worker.run_once() is True
 
-    metadata = read_metadata(job_id)
+    metadata = job_store.get_job(job_id)
     assert metadata is not None
     assert metadata.status == "cancelled"
     assert metadata.stage == "cancelled"
