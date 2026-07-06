@@ -11,7 +11,6 @@
 		manualScale = $bindable(4),
 		minScale = $bindable(2),
 		maxScale = $bindable(16),
-		confidenceThreshold = $bindable(0.45),
 		originalWidth = $bindable<number | undefined>(),
 		originalHeight = $bindable<number | undefined>(),
 		paletteCleanup = $bindable<PaletteCleanupMode>(),
@@ -33,7 +32,6 @@
 		manualScale: number;
 		minScale: number;
 		maxScale: number;
-		confidenceThreshold: number;
 		originalWidth: number | undefined;
 		originalHeight: number | undefined;
 		paletteCleanup: PaletteCleanupMode;
@@ -50,6 +48,8 @@
 		onRestore: () => void;
 		onCancel: () => void;
 	} = $props();
+
+	const settingCardClass = 'grid gap-3 rounded-[1.25rem] bg-[rgba(47,38,48,0.42)] p-4';
 
 	function modeClass(active: boolean) {
 		return active
@@ -74,55 +74,54 @@
 
 	<div class="grid gap-4 rounded-[1.35rem] bg-[var(--color-surface-soft)] p-5">
 		<h3 class="m-0 text-2xl uppercase tracking-[0.14em]">Basic</h3>
-		<div class="grid gap-2">
+		<div class={settingCardClass}>
 			<div class="readable-copy flex items-center gap-2 text-sm font-medium leading-5 tracking-normal text-[var(--color-text)]">
 				<span>Algorithm</span>
-				<HelpButton help={helpFor('algorithm-help')} />
 			</div>
 			<div class="grid grid-cols-1 gap-2 md:grid-cols-2" role="radiogroup" aria-label="Restore algorithm">
 				<label class={[modeClass(algorithm === 'auto'), 'flex min-h-12 cursor-pointer flex-col justify-center gap-1 rounded-2xl border px-4 py-3 text-xl']}>
-					<span class="flex items-center gap-2"><input type="radio" bind:group={algorithm} value="auto" disabled={isProcessing} /> Smart auto</span>
+					<span class="flex items-center gap-2"><input type="radio" bind:group={algorithm} value="auto" disabled={isProcessing} /> Smart auto <HelpButton help={helpFor('algorithm-auto-help')} /></span>
 					<small class="readable-copy text-sm text-[var(--color-text-muted)]">Default. Selects an algorithm automatically.</small>
 				</label>
 				<label class={[modeClass(algorithm === 'integer-grid-v1'), 'flex min-h-12 cursor-pointer flex-col justify-center gap-1 rounded-2xl border px-4 py-3 text-xl']}>
-					<span class="flex items-center gap-2"><input type="radio" bind:group={algorithm} value="integer-grid-v1" disabled={isProcessing} /> Fast integer</span>
+					<span class="flex items-center gap-2"><input type="radio" bind:group={algorithm} value="integer-grid-v1" disabled={isProcessing} /> Fast integer <HelpButton help={helpFor('algorithm-integer-help')} /></span>
 					<small class="readable-copy text-sm text-[var(--color-text-muted)]">For clean pixel art.</small>
 				</label>
 				<label class={[modeClass(algorithm === 'resampled-grid-v2'), 'flex min-h-12 cursor-pointer flex-col justify-center gap-1 rounded-2xl border px-4 py-3 text-xl']}>
-					<span class="flex items-center gap-2"><input type="radio" bind:group={algorithm} value="resampled-grid-v2" disabled={isProcessing} /> Resampled v2</span>
+					<span class="flex items-center gap-2"><input type="radio" bind:group={algorithm} value="resampled-grid-v2" disabled={isProcessing} /> Resampled v2 <HelpButton help={helpFor('algorithm-resampled-help')} /></span>
 					<small class="readable-copy text-sm text-[var(--color-text-muted)]">For fractional scale and known original size.</small>
 				</label>
 				<label class={[modeClass(algorithm === 'noisy-pixel-v1'), 'flex min-h-12 cursor-pointer flex-col justify-center gap-1 rounded-2xl border px-4 py-3 text-xl']}>
-					<span class="flex items-center gap-2"><input type="radio" bind:group={algorithm} value="noisy-pixel-v1" disabled={isProcessing} /> Noisy pixel</span>
+					<span class="flex items-center gap-2"><input type="radio" bind:group={algorithm} value="noisy-pixel-v1" disabled={isProcessing} /> Noisy pixel <HelpButton help={helpFor('algorithm-noisy-help')} /></span>
 					<small class="readable-copy text-sm text-[var(--color-text-muted)]">For JPEG and AI artifacts.</small>
 				</label>
 				<label class={[modeClass(algorithm === 'ai-pixel-v2'), 'flex min-h-12 cursor-pointer flex-col justify-center gap-1 rounded-2xl border px-4 py-3 text-xl']}>
-					<span class="flex items-center gap-2"><input type="radio" bind:group={algorithm} value="ai-pixel-v2" disabled={isProcessing} /> AI pixel v2</span>
+					<span class="flex items-center gap-2"><input type="radio" bind:group={algorithm} value="ai-pixel-v2" disabled={isProcessing} /> AI pixel v2 <HelpButton help={helpFor('algorithm-ai-help')} /></span>
 					<small class="readable-copy text-sm text-[var(--color-text-muted)]">Explicit mode for rough AI pixel art.</small>
 				</label>
 			</div>
+
+			{#if algorithm === 'auto'}
+				<p class="readable-copy m-0 leading-7 text-[var(--color-text-muted)]">
+					Auto mode runs preflight analysis and selects Fast integer or Noisy pixel depending on detected artifacts.
+				</p>
+			{:else if algorithm === 'noisy-pixel-v1'}
+				<p class="readable-copy m-0 leading-7 text-[var(--color-text-muted)]">
+					Noisy pixel uses cluster-based reconstruction for JPEG and AI color artifacts. It can also use fractional manual scale or original size.
+				</p>
+			{:else if algorithm === 'resampled-grid-v2'}
+				<p class="readable-copy m-0 leading-7 text-[var(--color-text-muted)]">
+					Resampled v2 restores non-integer upscales. Use manual scale or Advanced original size for best quality.
+				</p>
+			{:else if algorithm === 'ai-pixel-v2'}
+				<p class="readable-copy m-0 leading-7 text-[var(--color-text-muted)]">
+					AI pixel v2 uses fractional grid recovery, color clustering, and isolated artifact cleanup. Smart auto will not select it yet.
+				</p>
+			{/if}
 		</div>
 
-		{#if algorithm === 'auto'}
-			<p class="readable-copy m-0 leading-7 text-[var(--color-text-muted)]">
-				Auto mode runs preflight analysis and selects Fast integer or Noisy pixel depending on detected artifacts.
-			</p>
-		{:else if algorithm === 'noisy-pixel-v1'}
-			<p class="readable-copy m-0 leading-7 text-[var(--color-text-muted)]">
-				Noisy pixel uses cluster-based reconstruction for JPEG and AI color artifacts. It can also use fractional manual scale or original size.
-			</p>
-		{:else if algorithm === 'resampled-grid-v2'}
-			<p class="readable-copy m-0 leading-7 text-[var(--color-text-muted)]">
-				Resampled v2 restores non-integer upscales. Use manual scale or Advanced original size for best quality.
-			</p>
-		{:else if algorithm === 'ai-pixel-v2'}
-			<p class="readable-copy m-0 leading-7 text-[var(--color-text-muted)]">
-				AI pixel v2 uses fractional grid recovery, color clustering, and isolated artifact cleanup. Smart auto will not select it yet.
-			</p>
-		{/if}
-
 		{#if algorithm === 'noisy-pixel-v1' || algorithm === 'ai-pixel-v2'}
-			<label class="grid gap-2">
+			<label class={settingCardClass}>
 				<div class="readable-copy flex items-center gap-2 text-sm font-medium leading-5 tracking-normal text-[var(--color-text)]">
 					<span>Color bucket size</span>
 					<HelpButton help={helpFor('noisy-bucket-help')} />
@@ -133,7 +132,7 @@
 		{/if}
 
 		{#if supportsScaleControls(algorithm)}
-			<div class="grid gap-2">
+			<div class={settingCardClass}>
 				<div class="readable-copy flex items-center gap-2 text-sm font-medium leading-5 tracking-normal text-[var(--color-text)]">
 					<span>Scale mode</span>
 					<HelpButton help={helpFor('scale-mode-help')} />
@@ -148,10 +147,15 @@
 						Manual scale
 					</label>
 				</div>
+				{#if scaleMode === 'auto'}
+					<p class="readable-copy m-0 leading-7 text-[var(--color-text-muted)]">
+						Auto scale detection runs immediately and reports warnings when confidence is low.
+					</p>
+				{/if}
 			</div>
 
 			{#if scaleMode === 'manual'}
-				<label class="grid gap-2">
+				<label class={settingCardClass}>
 					<div class="readable-copy flex items-center gap-2 text-sm font-medium leading-5 tracking-normal text-[var(--color-text)]">
 						<span>Manual scale</span>
 						<HelpButton help={helpFor('manual-scale-help')} />
@@ -162,14 +166,10 @@
 						<strong class="text-2xl text-[var(--color-accent-strong)]">x</strong>
 					</div>
 				</label>
-			{:else}
-				<p class="readable-copy m-0 leading-7 text-[var(--color-text-muted)]">
-					Auto scale detection runs immediately and reports warnings when confidence is low.
-				</p>
 			{/if}
 		{/if}
 
-		<label class="grid gap-2">
+		<label class={settingCardClass}>
 			<div class="readable-copy flex items-center gap-2 text-sm font-medium leading-5 tracking-normal text-[var(--color-text)]">
 				<span>Palette cleanup</span>
 				<HelpButton help={helpFor('palette-cleanup-help')} />
@@ -185,8 +185,8 @@
 		</label>
 
 		{#if paletteCleanup === 'custom'}
-			<div class="grid grid-cols-1 gap-4 rounded-2xl border border-[var(--color-border)] bg-[rgba(47,38,48,0.34)] p-4 sm:grid-cols-2">
-				<label class="grid gap-2">
+			<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+				<label class={settingCardClass}>
 					<div class="readable-copy flex items-center gap-2 text-sm font-medium leading-5 tracking-normal text-[var(--color-text)]">
 						<span>Merge distance</span>
 						<HelpButton help={helpFor('palette-merge-distance-help')} />
@@ -194,7 +194,7 @@
 					<Slider min={0} max={64} step={1} bind:value={paletteMergeDistance} disabled={isProcessing} />
 					<strong class="text-2xl text-[var(--color-accent-strong)]">{paletteMergeDistance}</strong>
 				</label>
-				<label class="grid gap-2">
+				<label class={settingCardClass}>
 					<div class="readable-copy flex items-center gap-2 text-sm font-medium leading-5 tracking-normal text-[var(--color-text)]">
 						<span>Target colors</span>
 						<HelpButton help={helpFor('palette-target-colors-help')} />
@@ -205,68 +205,59 @@
 		{/if}
 	</div>
 
-		{#if supportsScaleControls(algorithm)}
-	<details class="mt-4 rounded-[1.35rem] bg-[var(--color-surface-soft)] p-5">
-		<summary class="cursor-pointer text-2xl font-black uppercase tracking-[0.14em]">Advanced</summary>
+	{#if supportsScaleControls(algorithm)}
+		<details class="mt-4 rounded-[1.35rem] bg-[var(--color-surface-soft)] p-5">
+			<summary class="cursor-pointer text-2xl font-black uppercase tracking-[0.14em]">Advanced</summary>
 
-		<div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-			<label class="grid gap-2">
-				<div class="readable-copy flex items-center gap-2 text-sm font-medium leading-5 tracking-normal text-[var(--color-text)]">
-					<span>Min scale</span>
-					<HelpButton help={helpFor('auto-range-help')} />
-				</div>
-				<input class="min-h-11 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-strong)] px-3 text-2xl text-[var(--color-text)]" type="number" min="1" max={maxScale} bind:value={minScale} disabled={isProcessing} />
-			</label>
-			<label class="grid gap-2">
-				<div class="readable-copy flex items-center gap-2 text-sm font-medium leading-5 tracking-normal text-[var(--color-text)]">
-					<span>Max scale</span>
-					<HelpButton help={helpFor('auto-range-help')} />
-				</div>
-				<input class="min-h-11 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-strong)] px-3 text-2xl text-[var(--color-text)]" type="number" min={minScale} max="64" bind:value={maxScale} disabled={isProcessing} />
-			</label>
-		</div>
-
-		<label class="mt-4 grid gap-2">
-			<div class="readable-copy flex items-center gap-2 text-sm font-medium leading-5 tracking-normal text-[var(--color-text)]">
-				<span>Confidence threshold</span>
-				<HelpButton help={helpFor('confidence-help')} />
+			<div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+				<label class={settingCardClass}>
+					<div class="readable-copy flex items-center gap-2 text-sm font-medium leading-5 tracking-normal text-[var(--color-text)]">
+						<span>Min scale</span>
+						<HelpButton help={helpFor('auto-range-help')} />
+					</div>
+					<input class="min-h-11 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-strong)] px-3 text-2xl text-[var(--color-text)]" type="number" min="1" max={maxScale} bind:value={minScale} disabled={isProcessing} />
+				</label>
+				<label class={settingCardClass}>
+					<div class="readable-copy flex items-center gap-2 text-sm font-medium leading-5 tracking-normal text-[var(--color-text)]">
+						<span>Max scale</span>
+						<HelpButton help={helpFor('auto-range-help')} />
+					</div>
+					<input class="min-h-11 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-strong)] px-3 text-2xl text-[var(--color-text)]" type="number" min={minScale} max="64" bind:value={maxScale} disabled={isProcessing} />
+				</label>
 			</div>
-			<Slider min={0} max={1} step={0.05} bind:value={confidenceThreshold} disabled={isProcessing} />
-			<strong class="text-2xl text-[var(--color-accent-strong)]">{confidenceThreshold.toFixed(2)}</strong>
-		</label>
 
-		{#if supportsFractionalControls(algorithm)}
-		<div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2" aria-label="Original size override">
-			<label class="grid gap-2">
-				<div class="readable-copy flex items-center gap-2 text-sm font-medium leading-5 tracking-normal text-[var(--color-text)]">
-					<span>Original width</span>
-					<HelpButton help={helpFor('original-size-help')} />
+			{#if supportsFractionalControls(algorithm)}
+				<div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2" aria-label="Original size override">
+					<label class={settingCardClass}>
+						<div class="readable-copy flex items-center gap-2 text-sm font-medium leading-5 tracking-normal text-[var(--color-text)]">
+							<span>Original width</span>
+							<HelpButton help={helpFor('original-size-help')} />
+						</div>
+						<input class="min-h-11 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-strong)] px-3 text-2xl text-[var(--color-text)] disabled:opacity-55" type="number" min="1" bind:value={originalWidth} disabled={isProcessing} placeholder="optional" />
+					</label>
+					<label class={settingCardClass}>
+						<div class="readable-copy flex items-center gap-2 text-sm font-medium leading-5 tracking-normal text-[var(--color-text)]">
+							<span>Original height</span>
+							<HelpButton help={helpFor('original-size-help')} />
+						</div>
+						<input class="min-h-11 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-strong)] px-3 text-2xl text-[var(--color-text)] disabled:opacity-55" type="number" min="1" bind:value={originalHeight} disabled={isProcessing} placeholder="optional" />
+					</label>
 				</div>
-				<input class="min-h-11 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-strong)] px-3 text-2xl text-[var(--color-text)] disabled:opacity-55" type="number" min="1" bind:value={originalWidth} disabled={isProcessing} placeholder="optional" />
-			</label>
-			<label class="grid gap-2">
-				<div class="readable-copy flex items-center gap-2 text-sm font-medium leading-5 tracking-normal text-[var(--color-text)]">
-					<span>Original height</span>
-					<HelpButton help={helpFor('original-size-help')} />
-				</div>
-				<input class="min-h-11 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-strong)] px-3 text-2xl text-[var(--color-text)] disabled:opacity-55" type="number" min="1" bind:value={originalHeight} disabled={isProcessing} placeholder="optional" />
-			</label>
-		</div>
 
-		<label class="mt-4 grid gap-2">
-			<div class="readable-copy flex items-center gap-2 text-sm font-medium leading-5 tracking-normal text-[var(--color-text)]">
-				<span>Fractional step</span>
-				<HelpButton help={helpFor('fractional-step-help')} />
-			</div>
-			<Slider min={0.05} max={1} step={0.05} bind:value={fractionalScaleStep} disabled={isProcessing} />
-			<strong class="text-2xl text-[var(--color-accent-strong)]">{fractionalScaleStep.toFixed(2)}</strong>
-		</label>
-		{/if}
-	</details>
+				<label class={[settingCardClass, 'mt-4']}>
+					<div class="readable-copy flex items-center gap-2 text-sm font-medium leading-5 tracking-normal text-[var(--color-text)]">
+						<span>Fractional step</span>
+						<HelpButton help={helpFor('fractional-step-help')} />
+					</div>
+					<Slider min={0.05} max={1} step={0.05} bind:value={fractionalScaleStep} disabled={isProcessing} />
+					<strong class="text-2xl text-[var(--color-accent-strong)]">{fractionalScaleStep.toFixed(2)}</strong>
+				</label>
+			{/if}
+		</details>
 	{/if}
 
 	<div class="mt-5 flex flex-col gap-3 sm:flex-row">
-		<Button class="flex-1 text-2xl tracking-[0.12em]" size="lg" disabled={!selectedFile || isProcessing} onclick={onRestore}>
+		<Button class="flex-1" size="lg" disabled={!selectedFile || isProcessing} onclick={onRestore}>
 			{isProcessing ? 'Restoring...' : 'Restore image'}
 		</Button>
 		{#if isProcessing}

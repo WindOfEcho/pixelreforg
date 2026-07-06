@@ -33,11 +33,13 @@
 
 html {
 	background: var(--color-bg);
+	color: var(--color-text);
 }
 
 body {
 	margin: 0;
 	min-width: 320px;
+	min-height: 100vh;
 	background: var(--color-bg);
 	color: var(--color-text);
 	font-family: var(--font-display);
@@ -50,7 +52,8 @@ button,
 input,
 select,
 textarea {
-	font: inherit;
+	font-family: inherit;
+	font-weight: inherit;
 }
 
 button,

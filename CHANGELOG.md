@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.13]  - 2026-07-06
+
+### Added
+
+- Algorithm-specific help tooltips for each restoration setting (`HelpButton.svelte`, `help.ts`).
+- Upload image summary now shows format, file size, and image dimensions (`UploadPanel.svelte`).
+- Shared `button.styles.ts` module extracted from `button.svelte` for consistent button theming.
+
+### Changed
+
+- Download filename now includes result dimensions from metadata (`ResultPanel.svelte`).
+- Mouse wheel over result preview scrolls the page while drag-pan behaviour is preserved (`ResultPanel.svelte`).
+- Settings panel controls regrouped into individual setting cards so labels and descriptions map clearly to sliders/inputs/buttons (`SettingsPanel.svelte`).
+- Result metadata regrouped into one shared surface block with a grid layout, matching the Upload image summary style (`ResultPanel.svelte`).
+- Button styling consolidated into shared `button.styles.ts` and reused by `button.svelte`.
+- Theme CSS and landing/process page UI refreshed to match the updated component styles.
+
+### Removed
+
+- Confidence threshold setting hidden from the user UI while the default value continues to be sent by the page (`SettingsPanel.svelte`).
+
 ## [0.0.12] - 2026-07-05
 
 ### Added

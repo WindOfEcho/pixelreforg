@@ -8,6 +8,8 @@
 <Tooltip.Root>
 	<Tooltip.Trigger
 		class="inline-flex size-6 cursor-help items-center justify-center rounded-full border border-[var(--color-border-strong)] bg-[rgba(248,221,164,0.12)] p-0 font-sans text-xs font-bold leading-none text-[var(--color-accent-strong)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent-strong)]"
+		type="button"
+		onclick={(event) => event.stopPropagation()}
 		aria-label={`Help: ${help.label}`}
 	>
 		?

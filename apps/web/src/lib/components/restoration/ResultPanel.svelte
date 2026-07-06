@@ -4,6 +4,7 @@
 	import type { JobMetadata } from '$lib/types';
 	import type { HelpText } from '$lib/ui/types';
 	import HelpButton from './HelpButton.svelte';
+	import { buttonClass } from '$lib/components/ui/button/button.styles';
 
 	type PreviewMode = 'side-by-side' | 'slider';
 	type PreviewPane = 'source' | 'result';
@@ -51,6 +52,16 @@
 		const after = metadata?.palette?.color_count_after;
 		if (typeof before === 'number' && typeof after === 'number') return `${before} → ${after}`;
 		return 'unknown';
+	});
+	const downloadFilename = $derived.by(() => {
+		const size = metadata?.target_size ? `${metadata.target_size[0]}x${metadata.target_size[1]}` : 'result';
+		const sourceName = metadata?.input_filename.replace(/\.[^.]+$/, '') ?? 'pixelreforge';
+		const safeName = sourceName
+			.replace(/[<>:"/\\|?*\u0000-\u001f]+/g, '-')
+			.replace(/\s+/g, '-')
+			.replace(/^-+|-+$/g, '');
+
+		return `${safeName || 'pixelreforge'}-${size}-restored.png`;
 	});
 	const progressPercent = $derived(Math.max(0, Math.min(100, metadata?.progress_percent ?? 0)));
 	const progressStyle = $derived(`width: ${progressPercent}%;`);
@@ -130,6 +141,14 @@
 	function stopPan() {
 		dragStart = null;
 	}
+
+	function scrollPageFromPreview(event: WheelEvent) {
+		if (event.ctrlKey) return;
+
+		const deltaScale = event.deltaMode === WheelEvent.DOM_DELTA_LINE ? 16 : event.deltaMode === WheelEvent.DOM_DELTA_PAGE ? window.innerHeight : 1;
+		event.preventDefault();
+		window.scrollBy({ left: event.deltaX * deltaScale, top: event.deltaY * deltaScale, behavior: 'auto' });
+	}
 </script>
 
 <section class="min-w-0 rounded-[1.75rem] border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-[var(--shadow-panel)] backdrop-blur md:p-7" aria-labelledby="result-title">
@@ -163,14 +182,14 @@
 				<Slider id="split-range" min={0} max={100} step={1} bind:value={split} />
 			</div>
 			<figure class="w-full max-w-full min-w-0 overflow-hidden">
-				<div class="pixel-preview h-[min(68vh,42rem)] min-h-96 w-full max-w-full min-w-0 overflow-auto overscroll-contain rounded-[1.25rem] p-4">
+				<div class="pixel-preview h-[min(68vh,42rem)] min-h-96 w-full max-w-full min-w-0 overflow-auto rounded-[1.25rem] p-4" onwheel={scrollPageFromPreview}>
 					<div class="grid min-h-full min-w-full place-items-center">
-					<div class="relative max-w-none shrink-0" style={compareStyle}>
-						<img class="pixelated absolute inset-0 size-full object-fill" src={resultPreviewUrl} alt="Restored result preview" />
-						<div class="absolute inset-0 overflow-hidden" style={`clip-path: inset(0 ${100 - split}% 0 0);`} aria-hidden="true">
-							<img class="pixelated size-full object-fill" src={sourcePreviewUrl} alt="" />
+						<div class="relative max-w-none shrink-0" style={compareStyle}>
+							<img class="pixelated absolute inset-0 size-full object-fill" src={resultPreviewUrl} alt="Restored result preview" />
+							<div class="absolute inset-0 overflow-hidden" style={`clip-path: inset(0 ${100 - split}% 0 0);`} aria-hidden="true">
+								<img class="pixelated size-full object-fill" src={sourcePreviewUrl} alt="" />
+							</div>
 						</div>
-					</div>
 					</div>
 				</div>
 				<figcaption class="readable-copy mt-2 flex justify-between text-sm text-[var(--color-text-muted)]">
@@ -183,10 +202,11 @@
 				{#if sourcePreviewUrl}
 					<figure class="min-w-0">
 						<div
-							class="pixel-preview grid h-[min(68vh,42rem)] min-h-96 w-full max-w-full min-w-0 cursor-grab place-items-center overflow-auto overscroll-contain rounded-[1.25rem] p-4 active:cursor-grabbing"
+							class="pixel-preview grid h-[min(68vh,42rem)] min-h-96 w-full max-w-full min-w-0 cursor-grab place-items-center overflow-auto rounded-[1.25rem] p-4 active:cursor-grabbing"
 							role="presentation"
 							bind:this={sourceViewport}
 							onscroll={() => syncScroll('source')}
+							onwheel={scrollPageFromPreview}
 							onpointerdown={(event) => startPan(event, 'source')}
 							onpointermove={pan}
 							onpointerup={stopPan}
@@ -199,10 +219,11 @@
 				{/if}
 				<figure class="min-w-0">
 					<div
-						class="pixel-preview grid h-[min(68vh,42rem)] min-h-96 w-full max-w-full min-w-0 cursor-grab place-items-center overflow-auto overscroll-contain rounded-[1.25rem] p-4 active:cursor-grabbing"
+						class="pixel-preview grid h-[min(68vh,42rem)] min-h-96 w-full max-w-full min-w-0 cursor-grab place-items-center overflow-auto rounded-[1.25rem] p-4 active:cursor-grabbing"
 						role="presentation"
 						bind:this={resultViewport}
 						onscroll={() => syncScroll('result')}
+						onwheel={scrollPageFromPreview}
 						onpointerdown={(event) => startPan(event, 'result')}
 						onpointermove={pan}
 						onpointerup={stopPan}
@@ -215,7 +236,9 @@
 			</div>
 		{/if}
 
-		<a class="mt-4 inline-flex min-h-14 w-full items-center justify-center rounded-2xl bg-[var(--color-accent)] px-7 text-2xl font-black tracking-[0.12em] text-[var(--color-bg-deep)] transition hover:-translate-y-0.5 hover:bg-[var(--color-accent-strong)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--color-accent-strong)]" href={resultPreviewUrl} download="pixelreforge-result.png">Download PNG</a>
+		<a href={resultPreviewUrl} download={downloadFilename} class={buttonClass('primary', 'lg', 'mt-4 w-full')}>
+			Download PNG
+		</a>
 	{:else}
 		<div class="readable-copy grid min-h-56 place-items-center rounded-[1.25rem] border border-[var(--color-border)] bg-[var(--color-surface-soft)] p-6 text-center text-[var(--color-text-muted)]">
 			The restored image and metadata will appear here.
@@ -223,20 +246,18 @@
 	{/if}
 
 	{#if metadata}
-		<dl class="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
-			<div class="rounded-2xl bg-[var(--color-surface-soft)] p-3"><dt class="readable-copy text-xs font-normal normal-case leading-5 tracking-normal text-[var(--color-text-soft)]">Status</dt><dd class="mt-1 break-words text-[var(--color-text)]">{metadata.status}</dd></div>
-			<div class="rounded-2xl bg-[var(--color-surface-soft)] p-3"><dt class="readable-copy flex items-center gap-2 text-xs font-normal normal-case leading-5 tracking-normal text-[var(--color-text-soft)]">Algorithm <HelpButton help={metadataHelp.algorithm} /></dt><dd class="mt-1 break-words text-[var(--color-text)]">{metadata.algorithm_requested ?? 'unknown'} → {metadata.algorithm_used ?? 'unknown'}</dd></div>
+		<dl class="readable-copy mt-4 grid grid-cols-1 gap-2 rounded-[1.25rem] bg-[var(--color-surface-soft)] p-4 text-sm text-[var(--color-text-muted)] sm:grid-cols-2 lg:grid-cols-3">
+			<div><dt class="text-[var(--color-text-soft)]">Status</dt><dd class="m-0 mt-1 break-words text-[var(--color-text)]">{metadata.status}</dd></div>
+			<div><dt class="flex items-center gap-2 text-[var(--color-text-soft)]">Algorithm <HelpButton help={metadataHelp.algorithm} /></dt><dd class="m-0 mt-1 break-words text-[var(--color-text)]">{metadata.algorithm_requested ?? 'unknown'} → {metadata.algorithm_used ?? 'unknown'}</dd></div>
 			{#if recommendedAlgorithm}
-				<div class="rounded-2xl bg-[var(--color-surface-soft)] p-3"><dt class="readable-copy text-xs font-normal normal-case leading-5 tracking-normal text-[var(--color-text-soft)]">Recommended</dt><dd class="mt-1 break-words text-[var(--color-text)]">{recommendedAlgorithm}</dd></div>
+				<div><dt class="text-[var(--color-text-soft)]">Recommended</dt><dd class="m-0 mt-1 break-words text-[var(--color-text)]">{recommendedAlgorithm}</dd></div>
 			{/if}
-			<div class="grid gap-3 rounded-2xl bg-[var(--color-surface-soft)] p-3 sm:row-span-2">
-				<div><dt class="readable-copy flex items-center gap-2 text-xs font-normal normal-case leading-5 tracking-normal text-[var(--color-text-soft)]">Source size <HelpButton help={metadataHelp.source} /></dt><dd class="mt-1 break-words text-[var(--color-text)]">{metadata.source_size?.join(' x ') ?? 'unknown'}</dd></div>
-				<div><dt class="readable-copy flex items-center gap-2 text-xs font-normal normal-case leading-5 tracking-normal text-[var(--color-text-soft)]">Result size <HelpButton help={metadataHelp.result} /></dt><dd class="mt-1 break-words text-[var(--color-text)]">{metadata.target_size?.join(' x ') ?? 'unknown'}</dd></div>
-			</div>
-			<div class="rounded-2xl bg-[var(--color-surface-soft)] p-3"><dt class="readable-copy flex items-center gap-2 text-xs font-normal normal-case leading-5 tracking-normal text-[var(--color-text-soft)]">Scale <HelpButton help={metadataHelp.scale} /></dt><dd class="mt-1 break-words text-[var(--color-text)]">{metadata.scale_x ?? '?'}x / {metadata.scale_y ?? '?'}y</dd></div>
-			<div class="rounded-2xl bg-[var(--color-surface-soft)] p-3"><dt class="readable-copy flex items-center gap-2 text-xs font-normal normal-case leading-5 tracking-normal text-[var(--color-text-soft)]">Method <HelpButton help={metadataHelp.method} /></dt><dd class="mt-1 break-words text-[var(--color-text)]">{metadata.scale_method ?? 'unknown'}</dd></div>
-			<div class="rounded-2xl bg-[var(--color-surface-soft)] p-3"><dt class="readable-copy flex items-center gap-2 text-xs font-normal normal-case leading-5 tracking-normal text-[var(--color-text-soft)]">Confidence <HelpButton help={metadataHelp.confidence} /></dt><dd class="mt-1 break-words text-[var(--color-text)]">{metadata.confidence?.toFixed(3) ?? 'unknown'}</dd></div>
-			<div class="rounded-2xl bg-[var(--color-surface-soft)] p-3"><dt class="readable-copy flex items-center gap-2 text-xs font-normal normal-case leading-5 tracking-normal text-[var(--color-text-soft)]">Palette cleanup <HelpButton help={metadataHelp.palette} /></dt><dd class="mt-1 break-words text-[var(--color-text)]">{metadata.palette_cleanup ?? 'off'} · {paletteColorSummary} colors</dd></div>
+			<div><dt class="flex items-center gap-2 text-[var(--color-text-soft)]">Source size <HelpButton help={metadataHelp.source} /></dt><dd class="m-0 mt-1 break-words text-[var(--color-text)]">{metadata.source_size?.join(' x ') ?? 'unknown'}</dd></div>
+			<div><dt class="flex items-center gap-2 text-[var(--color-text-soft)]">Result size <HelpButton help={metadataHelp.result} /></dt><dd class="m-0 mt-1 break-words text-[var(--color-text)]">{metadata.target_size?.join(' x ') ?? 'unknown'}</dd></div>
+			<div><dt class="flex items-center gap-2 text-[var(--color-text-soft)]">Scale <HelpButton help={metadataHelp.scale} /></dt><dd class="m-0 mt-1 break-words text-[var(--color-text)]">{metadata.scale_x ?? '?'}x / {metadata.scale_y ?? '?'}y</dd></div>
+			<div><dt class="flex items-center gap-2 text-[var(--color-text-soft)]">Method <HelpButton help={metadataHelp.method} /></dt><dd class="m-0 mt-1 break-words text-[var(--color-text)]">{metadata.scale_method ?? 'unknown'}</dd></div>
+			<div><dt class="flex items-center gap-2 text-[var(--color-text-soft)]">Confidence <HelpButton help={metadataHelp.confidence} /></dt><dd class="m-0 mt-1 break-words text-[var(--color-text)]">{metadata.confidence?.toFixed(3) ?? 'unknown'}</dd></div>
+			<div><dt class="flex items-center gap-2 text-[var(--color-text-soft)]">Palette cleanup <HelpButton help={metadataHelp.palette} /></dt><dd class="m-0 mt-1 break-words text-[var(--color-text)]">{metadata.palette_cleanup ?? 'off'} · {paletteColorSummary} colors</dd></div>
 		</dl>
 	{/if}
 </section>

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import mascot from '$lib/assets/pixelreforge-icon-Zephyr-fox-x20-outline.png';
+    import { buttonClass } from '$lib/components/ui/button/button.styles';
 </script>
 
 <svelte:head>
@@ -25,15 +26,10 @@
 
 			<div class="flex flex-col gap-3 sm:flex-row">
 				<a
-					class="inline-flex min-h-14 items-center justify-center rounded-2xl bg-[var(--color-accent)] px-7 text-2xl font-black tracking-[0.12em] text-[var(--color-bg-deep)] transition hover:-translate-y-0.5 hover:bg-[var(--color-accent-strong)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--color-accent-strong)]"
-					href="/process"
-				>
+					class={buttonClass('primary', 'lg', 'mt-4 w-full')} href="/process">
 					Start restoring
 				</a>
-				<a
-					class="inline-flex min-h-14 items-center justify-center rounded-2xl border border-[var(--color-border)] px-7 text-2xl font-black tracking-[0.12em] text-[var(--color-text)] transition hover:-translate-y-0.5 hover:border-[var(--color-border-strong)]"
-					href="#how-it-works"
-				>
+				<a class={buttonClass('primary', 'lg', 'mt-4 w-full')}	href="#how-it-works">
 					How it works
 				</a>
 			</div>

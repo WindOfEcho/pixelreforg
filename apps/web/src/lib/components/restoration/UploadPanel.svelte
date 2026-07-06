@@ -11,6 +11,10 @@
 </script>
 
 <script lang="ts">
+	let imageWidth = $state<number | null>(null);
+	let imageHeight = $state<number | null>(null);
+	let imageInfoUrl = $state<string | null>(null);
+
 	let {
 		selectedFile,
 		sourcePreviewUrl,
@@ -32,6 +36,22 @@
 		event.preventDefault();
 		isDragging = false;
 		onFileSelected(event.dataTransfer?.files?.[0] ?? null);
+	}
+
+	function handlePreviewLoad(event: Event) {
+		const image = event.currentTarget as HTMLImageElement;
+		imageWidth = image.naturalWidth;
+		imageHeight = image.naturalHeight;
+		imageInfoUrl = sourcePreviewUrl;
+	}
+
+	function formatFileSize(bytes: number): string {
+		if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+		return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+	}
+
+	function formatImageType(file: File): string {
+		return file.type.replace('image/', '').toUpperCase() || 'unknown type';
 	}
 </script>
 
@@ -63,15 +83,20 @@
 
 	<input id="file-input" type="file" accept={SUPPORTED_IMAGE_ACCEPT_VALUE} onchange={handleFileInput} hidden />
 
-	{#if selectedFile}
-		<p class="readable-copy mt-4 break-words text-sm text-[var(--color-text-muted)]">
-			Selected: {selectedFile.name} ({Math.round(selectedFile.size / 1024)} KB)
-		</p>
-	{/if}
-
 	{#if sourcePreviewUrl}
 		<div class="pixel-preview mt-4 grid min-h-72 place-items-center overflow-hidden rounded-[1.25rem]">
-			<img class="pixelated max-h-[32rem] object-contain" src={sourcePreviewUrl} alt="Selected source preview" />
+			<img class="pixelated max-h-[32rem] object-contain" src={sourcePreviewUrl} alt="Selected source preview" onload={handlePreviewLoad} />
+		</div>
+	{/if}
+
+	{#if selectedFile}
+		<div class="readable-copy mt-4 grid gap-2 rounded-[1.25rem] bg-[var(--color-surface-soft)] p-4 text-sm text-[var(--color-text-muted)]">
+			<p class="m-0 break-words text-[var(--color-text)]">Selected: {selectedFile.name}</p>
+			<dl class="grid grid-cols-1 gap-2 sm:grid-cols-3">
+				<div><dt class="text-[var(--color-text-soft)]">Format</dt><dd class="m-0 text-[var(--color-text)]">{formatImageType(selectedFile)}</dd></div>
+				<div><dt class="text-[var(--color-text-soft)]">File size</dt><dd class="m-0 text-[var(--color-text)]">{formatFileSize(selectedFile.size)}</dd></div>
+				<div><dt class="text-[var(--color-text-soft)]">Image size</dt><dd class="m-0 text-[var(--color-text)]">{imageInfoUrl === sourcePreviewUrl && imageWidth && imageHeight ? `${imageWidth} x ${imageHeight}` : 'loading...'}</dd></div>
+			</dl>
 		</div>
 	{/if}
 </section>

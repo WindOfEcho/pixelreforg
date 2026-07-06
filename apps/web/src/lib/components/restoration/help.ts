@@ -9,6 +9,41 @@ const helpItems: HelpText[] = [
 		example: 'Use Fast integer for clean PNG upscales; use Smart auto or Noisy pixel for JPEG; choose AI pixel v2 manually for AI-generated pixel art.'
 	},
 	{
+		id: 'algorithm-auto-help',
+		label: 'Smart auto',
+		description: 'Runs preflight analysis and picks the safest available restoration path for the input.',
+		impact: 'Best first try when you are not sure whether the image is clean or noisy.',
+		example: 'Use it for mixed uploads where PNG, JPEG, and AI-generated images are possible.'
+	},
+	{
+		id: 'algorithm-integer-help',
+		label: 'Fast integer',
+		description: 'Detects a whole-number upscale and samples one source pixel per restored pixel block.',
+		impact: 'Fastest and sharpest option for clean nearest-neighbor upscales.',
+		example: 'Use it for a clean 4x PNG sprite sheet that should become 1/4 of its current width and height.'
+	},
+	{
+		id: 'algorithm-resampled-help',
+		label: 'Resampled v2',
+		description: 'Restores images enlarged with fractional or softened scaling instead of exact integer blocks.',
+		impact: 'Useful when edges are slightly blurred or the original size is known, but it may need manual scale hints.',
+		example: 'Use it for a 300 x 300 image that originally was 200 x 200.'
+	},
+	{
+		id: 'algorithm-noisy-help',
+		label: 'Noisy pixel',
+		description: 'Groups similar colors inside each pixel block to tolerate JPEG compression and color noise.',
+		impact: 'More robust on noisy files, but can simplify subtle palette differences.',
+		example: 'Use it for a JPEG pixel-art image with speckled colors around edges.'
+	},
+	{
+		id: 'algorithm-ai-help',
+		label: 'AI pixel v2',
+		description: 'Explicit pipeline for rough AI pixel art with fractional grid recovery, clustering, and artifact cleanup.',
+		impact: 'More aggressive than Smart auto and intended for images with AI-style irregularities.',
+		example: 'Use it when pixels are uneven, colors drift between tiles, or artifacts remain after Noisy pixel.'
+	},
+	{
 		id: 'scale-mode-help',
 		label: 'Scale mode',
 		description: 'Controls whether PixelReForge estimates the enlargement scale or uses your value.',

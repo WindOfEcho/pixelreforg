@@ -250,7 +250,6 @@
 			bind:manualScale
 			bind:minScale
 			bind:maxScale
-			bind:confidenceThreshold
 			bind:originalWidth
 			bind:originalHeight
 			bind:paletteCleanup
