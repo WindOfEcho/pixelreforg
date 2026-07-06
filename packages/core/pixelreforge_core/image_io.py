@@ -4,7 +4,7 @@ from PIL import Image
 
 
 def load_image(path: str | Path) -> Image.Image:
-    image = Image.open(path)
+    image: Image.Image = Image.open(path)
     if image.mode not in ("RGB", "RGBA"):
         image = image.convert("RGBA" if "A" in image.getbands() else "RGB")
     return image

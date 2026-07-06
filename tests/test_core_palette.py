@@ -4,10 +4,10 @@ import unittest
 import numpy as np
 from PIL import Image
 
+from pixelreforge_core import RestoreSettings, process_image, restore_palette
+
 
 ROOT = Path(__file__).resolve().parents[1]
-
-from pixelreforge_core import RestoreSettings, process_image, restore_palette
 
 
 class CorePaletteTests(unittest.TestCase):

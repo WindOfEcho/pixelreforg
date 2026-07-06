@@ -296,7 +296,7 @@ class SQLiteJobStore:
 
 
 def create_job_store(settings: ApiSettings) -> JobStore:
-    if settings.database_url.startswith("sqlite:///") or not "://" in settings.database_url:
+    if settings.database_url.startswith("sqlite:///") or "://" not in settings.database_url:
         return SQLiteJobStore(settings.database_url)
     raise ValueError(f"Unsupported job database URL: {settings.database_url}")
 

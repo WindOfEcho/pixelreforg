@@ -1,0 +1,77 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+VERSION="${1:-}"
+APP_DIR="${PIXELREFORGE_DEPLOY_DIR:-/opt/pixelreforge}"
+COMPOSE_FILE="${PIXELREFORGE_COMPOSE_FILE:-compose.prod.yml}"
+HEALTH_TIMEOUT_SECONDS="${PIXELREFORGE_HEALTH_TIMEOUT_SECONDS:-180}"
+
+if [[ ! "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  echo "Usage: pixelreforge-deploy vX.Y.Z" >&2
+  exit 2
+fi
+
+cd "$APP_DIR"
+
+if [[ ! -f .env ]]; then
+  echo "Missing $APP_DIR/.env" >&2
+  exit 1
+fi
+
+if [[ ! -f "$COMPOSE_FILE" ]]; then
+  echo "Missing $APP_DIR/$COMPOSE_FILE" >&2
+  exit 1
+fi
+
+export PIXELREFORGE_IMAGE_TAG="$VERSION"
+
+compose() {
+  docker compose --env-file .env -f "$COMPOSE_FILE" "$@"
+}
+
+wait_for_service() {
+  local service="$1"
+  local elapsed=0
+  local container_id=""
+  local state=""
+  local health=""
+
+  while (( elapsed < HEALTH_TIMEOUT_SECONDS )); do
+    container_id="$(compose ps -q "$service")"
+
+    if [[ -n "$container_id" ]]; then
+      state="$(docker inspect --format '{{.State.Status}}' "$container_id" 2>/dev/null || true)"
+      health="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{end}}' "$container_id" 2>/dev/null || true)"
+
+      if [[ "$health" == "healthy" || ( -z "$health" && "$state" == "running" ) ]]; then
+        echo "$service is ${health:-$state}"
+        return 0
+      fi
+
+      if [[ "$health" == "unhealthy" || "$state" == "exited" || "$state" == "dead" ]]; then
+        echo "$service failed: state=$state health=${health:-none}" >&2
+        compose logs --tail=100 "$service" >&2 || true
+        return 1
+      fi
+    fi
+
+    sleep 5
+    elapsed=$((elapsed + 5))
+  done
+
+  echo "$service did not become healthy within ${HEALTH_TIMEOUT_SECONDS}s" >&2
+  compose logs --tail=100 "$service" >&2 || true
+  return 1
+}
+
+echo "Deploying PixelReForge $VERSION from GHCR"
+compose pull
+compose up -d
+
+wait_for_service api
+wait_for_service worker
+wait_for_service web
+wait_for_service caddy
+
+compose ps
+echo "PixelReForge $VERSION deployed"

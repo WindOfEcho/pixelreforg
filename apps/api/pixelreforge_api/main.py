@@ -241,11 +241,11 @@ def create_app(settings: ApiSettings | None = None, job_store: JobStore | None =
                 current.worker_id = None
             return current
 
-        metadata = job_store.update_job(job_id, mark_cancelled)
-        if metadata is None or metadata.owner_id != owner_id:
+        updated_metadata = job_store.update_job(job_id, mark_cancelled)
+        if updated_metadata is None or updated_metadata.owner_id != owner_id:
             raise HTTPException(status_code=404, detail="Job not found.")
-        logger.info("Job cancelled.", extra={"event": "job_cancelled", "job_id": job_id, "status": metadata.status})
-        return _public_job(metadata)
+        logger.info("Job cancelled.", extra={"event": "job_cancelled", "job_id": job_id, "status": updated_metadata.status})
+        return _public_job(updated_metadata)
 
     return api
 

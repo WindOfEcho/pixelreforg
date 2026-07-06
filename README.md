@@ -65,12 +65,16 @@ docker compose down
 
 ## Deploy
 
-Deployment uses `docker-compose.prd.yml` with Caddy as HTTPS reverse proxy.
+Deployment uses `compose.prod.yml` with Caddy as HTTPS reverse proxy. Production images are pulled from GHCR and selected by an explicit release tag.
 
 Create `.env` from `.env.example` and set the public domain:
 
 ```env
 PIXELREFORGE_DOMAIN=example.com
+PIXELREFORGE_GHCR_OWNER=windofechos
+PIXELREFORGE_IMAGE_TAG=v0.1.0
+PIXELREFORGE_PUBLIC_ORIGIN=https://example.com
+PIXELREFORGE_PUBLIC_API_BASE_URL=https://example.com
 PIXELREFORGE_CORS_ORIGINS=https://example.com
 PIXELREFORGE_LOG_LEVEL=INFO
 PIXELREFORGE_SESSION_SECRET=change-me-to-a-random-secret
@@ -80,15 +84,15 @@ PIXELREFORGE_SENTRY_TRACES_SAMPLE_RATE=0.0
 
 `PIXELREFORGE_SESSION_SECRET` is required in production. It signs anonymous session cookies that limit job metadata and result downloads to the browser that created the job.
 
-Run from `pixelreforge/`:
+Run from this directory after publishing the selected image tag:
 
 ```sh
-docker compose --env-file .env -f docker-compose.prd.yml build
-docker compose --env-file .env -f docker-compose.prd.yml up -d
-docker compose --env-file .env -f docker-compose.prd.yml ps
+PIXELREFORGE_IMAGE_TAG=v0.1.0 docker compose --env-file .env -f compose.prod.yml pull
+PIXELREFORGE_IMAGE_TAG=v0.1.0 docker compose --env-file .env -f compose.prod.yml up -d
+PIXELREFORGE_IMAGE_TAG=v0.1.0 docker compose --env-file .env -f compose.prod.yml ps
 ```
 
-Caddy publishes only `80` and `443`, routes `/api/*` and `/health` to FastAPI, and routes the rest to the SvelteKit web container. The domain must resolve to the VPS and ports `80/443` must be reachable for Let's Encrypt certificates.
+Caddy publishes only `80` and `443`, routes `/api/*` and `/health` to FastAPI, and routes the rest to the SvelteKit web container. For HTTPS, the domain must resolve to the VPS and ports `80/443` must be reachable for Let's Encrypt certificates.
 
 ## License
 

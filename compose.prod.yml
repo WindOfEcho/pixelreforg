@@ -1,3 +1,5 @@
+name: pixelreforge
+
 services:
   caddy:
     image: caddy:2-alpine
@@ -6,7 +8,7 @@ services:
       - "80:80"
       - "443:443"
     environment:
-      PIXELREFORGE_DOMAIN: ${PIXELREFORGE_DOMAIN}
+      PIXELREFORGE_DOMAIN: ${PIXELREFORGE_DOMAIN:?Set PIXELREFORGE_DOMAIN}
     volumes:
       - ./infra/docker/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
@@ -18,17 +20,16 @@ services:
         condition: service_healthy
 
   api:
-    build:
-      context: .
-      dockerfile: infra/docker/api.Dockerfile
+    image: ghcr.io/${PIXELREFORGE_GHCR_OWNER:?Set PIXELREFORGE_GHCR_OWNER}/pixelreforge-api:${PIXELREFORGE_IMAGE_TAG:?Set PIXELREFORGE_IMAGE_TAG}
+    pull_policy: always
     restart: unless-stopped
     environment:
       PIXELREFORGE_ENV: production
       PIXELREFORGE_DEBUG: "false"
       PIXELREFORGE_LOG_FORMAT: json
       PIXELREFORGE_LOG_LEVEL: ${PIXELREFORGE_LOG_LEVEL:-INFO}
-      PIXELREFORGE_CORS_ORIGINS: ${PIXELREFORGE_CORS_ORIGINS}
-      PIXELREFORGE_SESSION_SECRET: ${PIXELREFORGE_SESSION_SECRET}
+      PIXELREFORGE_CORS_ORIGINS: ${PIXELREFORGE_CORS_ORIGINS:?Set PIXELREFORGE_CORS_ORIGINS}
+      PIXELREFORGE_SESSION_SECRET: ${PIXELREFORGE_SESSION_SECRET:?Set PIXELREFORGE_SESSION_SECRET}
       PIXELREFORGE_SESSION_COOKIE_NAME: ${PIXELREFORGE_SESSION_COOKIE_NAME:-pixelreforge_session}
       PIXELREFORGE_SESSION_MAX_AGE_SECONDS: ${PIXELREFORGE_SESSION_MAX_AGE_SECONDS:-2592000}
       PIXELREFORGE_SENTRY_DSN: ${PIXELREFORGE_SENTRY_DSN:-}
@@ -47,9 +48,8 @@ services:
       start_period: 20s
 
   worker:
-    build:
-      context: .
-      dockerfile: infra/docker/api.Dockerfile
+    image: ghcr.io/${PIXELREFORGE_GHCR_OWNER:?Set PIXELREFORGE_GHCR_OWNER}/pixelreforge-api:${PIXELREFORGE_IMAGE_TAG:?Set PIXELREFORGE_IMAGE_TAG}
+    pull_policy: always
     command: ["python", "-m", "pixelreforge_api.worker"]
     restart: unless-stopped
     environment:
@@ -57,7 +57,7 @@ services:
       PIXELREFORGE_DEBUG: "false"
       PIXELREFORGE_LOG_FORMAT: json
       PIXELREFORGE_LOG_LEVEL: ${PIXELREFORGE_LOG_LEVEL:-INFO}
-      PIXELREFORGE_SESSION_SECRET: ${PIXELREFORGE_SESSION_SECRET}
+      PIXELREFORGE_SESSION_SECRET: ${PIXELREFORGE_SESSION_SECRET:?Set PIXELREFORGE_SESSION_SECRET}
       PIXELREFORGE_SENTRY_DSN: ${PIXELREFORGE_SENTRY_DSN:-}
       PIXELREFORGE_SENTRY_TRACES_SAMPLE_RATE: ${PIXELREFORGE_SENTRY_TRACES_SAMPLE_RATE:-0.0}
       PIXELREFORGE_DATABASE_URL: sqlite:////app/runtime/pixelreforge.sqlite3
@@ -73,16 +73,15 @@ services:
         condition: service_healthy
 
   web:
-    build:
-      context: .
-      dockerfile: infra/docker/web.Dockerfile
+    image: ghcr.io/${PIXELREFORGE_GHCR_OWNER:?Set PIXELREFORGE_GHCR_OWNER}/pixelreforge-web:${PIXELREFORGE_IMAGE_TAG:?Set PIXELREFORGE_IMAGE_TAG}
+    pull_policy: always
     restart: unless-stopped
     environment:
       NODE_ENV: production
       HOST: 0.0.0.0
       PORT: 3000
-      ORIGIN: https://${PIXELREFORGE_DOMAIN}
-      PUBLIC_API_BASE_URL: https://${PIXELREFORGE_DOMAIN}
+      ORIGIN: ${PIXELREFORGE_PUBLIC_ORIGIN:?Set PIXELREFORGE_PUBLIC_ORIGIN}
+      PUBLIC_API_BASE_URL: ${PIXELREFORGE_PUBLIC_API_BASE_URL:?Set PIXELREFORGE_PUBLIC_API_BASE_URL}
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 30s

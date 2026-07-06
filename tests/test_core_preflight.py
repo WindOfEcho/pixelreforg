@@ -4,10 +4,10 @@ import unittest
 import numpy as np
 from PIL import Image
 
+from pixelreforge_core import RestoreSettings, analyze_image, process_image
+
 
 ROOT = Path(__file__).resolve().parents[1]
-
-from pixelreforge_core import RestoreSettings, analyze_image, process_image
 
 
 class CorePreflightTests(unittest.TestCase):
