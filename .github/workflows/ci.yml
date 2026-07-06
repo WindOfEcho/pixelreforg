@@ -100,7 +100,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Validate development compose
-        run: docker compose -f docker-compose.yml config
+        run: docker compose -f compose.yml config
 
       - name: Validate production compose
         run: docker compose -f compose.prod.yml config

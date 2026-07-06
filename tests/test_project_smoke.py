@@ -10,7 +10,7 @@ class ProjectSmokeTests(unittest.TestCase):
         expected_paths = [
             "README.md",
             "LICENSE",
-            "docker-compose.yml",
+            "compose.yml",
             "apps/web/README.md",
             "apps/api/README.md",
             "packages/core/README.md",
@@ -44,7 +44,7 @@ class ProjectSmokeTests(unittest.TestCase):
         self.assertIn("Version 3", license_text)
 
     def test_compose_declares_api_web_and_runtime_volume(self) -> None:
-        compose = (ROOT / "docker-compose.yml").read_text(encoding="utf-8")
+        compose = (ROOT / "compose.yml").read_text(encoding="utf-8")
 
         expected_text = [
             "services:",
