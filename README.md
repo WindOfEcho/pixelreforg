@@ -71,7 +71,7 @@ Create `.env` from `.env.example` and set the public domain:
 
 ```env
 PIXELREFORGE_DOMAIN=example.com
-PIXELREFORGE_GHCR_OWNER=windofechos
+PIXELREFORGE_GHCR_OWNER=windofecho
 PIXELREFORGE_IMAGE_TAG=v0.1.0
 PIXELREFORGE_PUBLIC_ORIGIN=https://example.com
 PIXELREFORGE_PUBLIC_API_BASE_URL=https://example.com
@@ -97,4 +97,4 @@ Caddy publishes only `80` and `443`, routes `/api/*` and `/health` to FastAPI, a
 ## License
 
 Source code of PixelReForge is licensed under the AGPL-3.0-or-later. See `LICENSE`.
-Unless otherwise specified, all artwork, sprites, textures, icons, illustrations and other visual assets of PixelReForge © 2026 by WindOfEchos are licensed under Creative Commons Attribution-NonCommercial-NoDerivatives 4.0 International (CC BY-NC-ND 4.0). To view a copy of this license, visit https://creativecommons.org/licenses/by-nc-nd/4.0/
+Unless otherwise specified, all artwork, sprites, textures, icons, illustrations and other visual assets of PixelReForge © 2026 by WindOfEcho are licensed under Creative Commons Attribution-NonCommercial-NoDerivatives 4.0 International (CC BY-NC-ND 4.0). To view a copy of this license, visit https://creativecommons.org/licenses/by-nc-nd/4.0/
