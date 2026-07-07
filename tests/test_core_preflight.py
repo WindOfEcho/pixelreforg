@@ -3,6 +3,7 @@ import unittest
 
 import numpy as np
 from PIL import Image
+import pytest
 
 from pixelreforge_core import RestoreSettings, analyze_image, process_image
 
@@ -21,6 +22,7 @@ class CorePreflightTests(unittest.TestCase):
         self.assertEqual("integer-grid-v1", result.analysis["recommended_algorithm"])
         self.assertGreaterEqual(result.analysis["grid_confidence"], 0.99)
 
+    @pytest.mark.regression
     def test_noisy_jpeg_auto_uses_noisy_pixel(self) -> None:
         for fixture_name in ("test-jpegs-x4-60.jpg", "test-jpegs-x10-60.jpg"):
             with self.subTest(fixture=fixture_name):
@@ -42,6 +44,7 @@ class CorePreflightTests(unittest.TestCase):
         self.assertEqual("dominant-color-cluster", result.reconstruction["resize_method"])
         self.assertEqual((32, 32), result.target_size)
 
+    @pytest.mark.regression
     def test_noisy_pixel_manual_scale_can_downscale_ai_fixture(self) -> None:
         image = Image.open(ROOT / "tests" / "fixtures" / "test-ai-2.png")
         image.thumbnail((256, 256))

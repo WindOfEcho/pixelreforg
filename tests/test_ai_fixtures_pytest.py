@@ -8,11 +8,14 @@ from pixelreforge_core import RestoreSettings, process_image
 
 
 ROOT = Path(__file__).resolve().parents[1]
+pytestmark = pytest.mark.regression
+AI_FIXTURE_NAMES = [path.name for path in sorted((ROOT / "tests" / "fixtures").glob("test-ai-*.png"))]
 
 
-@pytest.mark.parametrize("fixture_name", ["test-ai-1.png", "test-ai-2.png"])
+@pytest.mark.parametrize("fixture_name", AI_FIXTURE_NAMES)
 def test_ai_fixtures_auto_pipeline_returns_metadata_without_crashing(fixture_name: str) -> None:
     image = Image.open(ROOT / "tests" / "fixtures" / fixture_name)
+    image.thumbnail((256, 256))
 
     result = process_image(image, RestoreSettings(algorithm="auto", scale_mode="auto", min_scale=1, max_scale=16))
 

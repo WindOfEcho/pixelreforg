@@ -49,6 +49,17 @@ def run_worker_until_idle(worker: JobWorker, max_runs: int = 10) -> int:
     return runs
 
 
+def create_job_without_processing(client: TestClient, fixture_name: str = "zephyr-small-test-x2.png") -> str:
+    fixture_path = ROOT / "tests" / "fixtures" / fixture_name
+    with fixture_path.open("rb") as image_file:
+        response = client.post(
+            "/api/jobs?scale=2",
+            files={"file": (fixture_name, image_file, "image/png")},
+        )
+    assert response.status_code == 202
+    return response.json()["job_id"]
+
+
 def test_health_returns_ok(client: TestClient) -> None:
     response = client.get("/health")
 
@@ -171,6 +182,7 @@ def test_sentry_is_configured_with_dsn(monkeypatch: pytest.MonkeyPatch, caplog: 
     assert any(record.event == "sentry_configured" for record in caplog.records)
 
 
+@pytest.mark.regression
 def test_create_job_processes_fixture_and_downloads_result(client: TestClient, worker: JobWorker) -> None:
     fixture_path = ROOT / "tests" / "fixtures" / "test-jpegs-x4-90.jpg"
 
@@ -214,6 +226,7 @@ def test_create_job_processes_fixture_and_downloads_result(client: TestClient, w
     assert download_response.content.startswith(b"\x89PNG")
 
 
+@pytest.mark.regression
 def test_auto_algorithm_records_recommendation_and_fallback(client: TestClient, worker: JobWorker) -> None:
     fixture_path = ROOT / "tests" / "fixtures" / "test-jpegs-x4-60.jpg"
 
@@ -237,6 +250,7 @@ def test_auto_algorithm_records_recommendation_and_fallback(client: TestClient, 
     assert metadata["analysis"]["recommended_algorithm"] == "noisy-pixel-v1"
 
 
+@pytest.mark.regression
 def test_explicit_noisy_pixel_algorithm_processes_fixture(client: TestClient, worker: JobWorker) -> None:
     fixture_path = ROOT / "tests" / "fixtures" / "test-jpegs-x10-60.jpg"
 
@@ -257,6 +271,7 @@ def test_explicit_noisy_pixel_algorithm_processes_fixture(client: TestClient, wo
     assert metadata["palette"]["cleanup_applied"] is True
 
 
+@pytest.mark.performance
 def test_explicit_ai_pixel_v2_algorithm_processes_fixture(client: TestClient, worker: JobWorker) -> None:
     fixture_path = ROOT / "tests" / "fixtures" / "test-ai-2.png"
 
@@ -278,6 +293,7 @@ def test_explicit_ai_pixel_v2_algorithm_processes_fixture(client: TestClient, wo
     assert metadata["reconstruction"]["artifact_cleanup"] == "isolated-pixel-neighborhood"
 
 
+@pytest.mark.regression
 def test_processing_failure_retries_until_max_attempts(
     client: TestClient,
     worker: JobWorker,
@@ -350,16 +366,7 @@ def test_same_anonymous_session_keeps_access_after_client_reload(api_settings: A
     app = create_app(settings=api_settings, job_store=job_store)
     first_client = TestClient(app)
     reloaded_client = TestClient(app)
-    fixture_path = ROOT / "tests" / "fixtures" / "test-jpegs-x4-90.jpg"
-
-    with fixture_path.open("rb") as image_file:
-        create_response = first_client.post(
-            "/api/jobs?scale=4",
-            files={"file": ("owned.jpg", image_file, "image/jpeg")},
-        )
-
-    assert create_response.status_code == 202
-    job_id = create_response.json()["job_id"]
+    job_id = create_job_without_processing(first_client)
     session_cookie = first_client.cookies.get(api_settings.session_cookie_name)
     assert session_cookie is not None
     reloaded_client.cookies.set(api_settings.session_cookie_name, session_cookie, domain="testserver.local", path="/")
@@ -374,16 +381,7 @@ def test_anonymous_sessions_isolate_job_status_list_download_and_cancel(api_sett
     app = create_app(settings=api_settings, job_store=job_store)
     owner_client = TestClient(app)
     other_client = TestClient(app)
-    fixture_path = ROOT / "tests" / "fixtures" / "test-jpegs-x4-90.jpg"
-
-    with fixture_path.open("rb") as image_file:
-        create_response = owner_client.post(
-            "/api/jobs?scale=4",
-            files={"file": ("owned.jpg", image_file, "image/jpeg")},
-        )
-
-    assert create_response.status_code == 202
-    job_id = create_response.json()["job_id"]
+    job_id = create_job_without_processing(owner_client)
 
     def complete_job(metadata: JobMetadata) -> JobMetadata:
         output_path = get_job_dir(job_id) / "output.png"
@@ -417,16 +415,7 @@ def test_invalid_anonymous_session_cookie_starts_new_session_without_old_access(
     owner_client = TestClient(app)
     invalid_client = TestClient(app)
     invalid_client.cookies.set(api_settings.session_cookie_name, "invalid-token", domain="testserver.local", path="/")
-    fixture_path = ROOT / "tests" / "fixtures" / "test-jpegs-x4-90.jpg"
-
-    with fixture_path.open("rb") as image_file:
-        create_response = owner_client.post(
-            "/api/jobs?scale=4",
-            files={"file": ("owned.jpg", image_file, "image/jpeg")},
-        )
-
-    assert create_response.status_code == 202
-    job_id = create_response.json()["job_id"]
+    job_id = create_job_without_processing(owner_client)
     owner_cookie = owner_client.cookies.get(api_settings.session_cookie_name)
 
     response = invalid_client.get(f"/api/jobs/{job_id}")
@@ -438,16 +427,16 @@ def test_invalid_anonymous_session_cookie_starts_new_session_without_old_access(
 
 
 def test_list_jobs_returns_recent_queued_jobs(client: TestClient) -> None:
-    fixture_path = ROOT / "tests" / "fixtures" / "test-jpegs-x4-90.jpg"
+    fixture_path = ROOT / "tests" / "fixtures" / "zephyr-small-test-x2.png"
     with fixture_path.open("rb") as image_file:
         first_response = client.post(
-            "/api/jobs?scale=4",
-            files={"file": ("first.jpg", image_file, "image/jpeg")},
+            "/api/jobs?scale=2",
+            files={"file": ("first.png", image_file, "image/png")},
         )
     with fixture_path.open("rb") as image_file:
         second_response = client.post(
-            "/api/jobs?scale=4",
-            files={"file": ("second.jpg", image_file, "image/jpeg")},
+            "/api/jobs?scale=2",
+            files={"file": ("second.png", image_file, "image/png")},
         )
 
     response = client.get("/api/jobs?limit=10")
@@ -497,14 +486,7 @@ def test_worker_recovery_requeues_interrupted_processing_job(worker: JobWorker, 
 
 
 def test_cancel_endpoint_marks_active_job_and_blocks_download(client: TestClient, job_store: SQLiteJobStore) -> None:
-    fixture_path = ROOT / "tests" / "fixtures" / "test-jpegs-x4-90.jpg"
-    with fixture_path.open("rb") as image_file:
-        create_response = client.post(
-            "/api/jobs?scale=4",
-            files={"file": ("cancel.jpg", image_file, "image/jpeg")},
-        )
-    assert create_response.status_code == 202
-    job_id = create_response.json()["job_id"]
+    job_id = create_job_without_processing(client)
 
     def mark_processing(metadata: JobMetadata) -> JobMetadata:
         metadata.status = "processing"
@@ -529,6 +511,7 @@ def test_cancel_endpoint_marks_active_job_and_blocks_download(client: TestClient
     assert download_response.status_code == 409
 
 
+@pytest.mark.regression
 def test_process_job_records_progress_and_preserves_cancelled_status(
     worker: JobWorker,
     job_store: SQLiteJobStore,

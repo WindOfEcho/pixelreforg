@@ -3,16 +3,18 @@ import unittest
 
 import numpy as np
 from PIL import Image
+import pytest
 
 from pixelreforge_core import RestoreSettings, process_image, restore_palette
 
 
 ROOT = Path(__file__).resolve().parents[1]
+ORIGINAL_FIXTURE = "test-original-32x32px.png"
 
 
 class CorePaletteTests(unittest.TestCase):
     def test_palette_cleanup_off_keeps_pixels_unchanged_and_records_metadata(self) -> None:
-        image = Image.open(ROOT / "tests" / "fixtures" / "test-original.png").convert("RGBA")
+        image = Image.open(ROOT / "tests" / "fixtures" / ORIGINAL_FIXTURE).convert("RGBA")
 
         result = restore_palette(image, "off")
 
@@ -54,6 +56,7 @@ class CorePaletteTests(unittest.TestCase):
         self.assertEqual({30, 255}, alpha_values)
         self.assertEqual("RGBA", result.image.mode)
 
+    @pytest.mark.regression
     def test_jpeg_palette_cleanup_reduces_restored_color_count(self) -> None:
         image = Image.open(ROOT / "tests" / "fixtures" / "test-jpegs-x4-60.jpg")
         off = process_image(image, RestoreSettings(scale_mode="manual", manual_scale_x=4, manual_scale_y=4, palette_cleanup="off"))

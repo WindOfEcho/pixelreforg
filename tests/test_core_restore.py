@@ -3,12 +3,14 @@ import unittest
 
 import numpy as np
 from PIL import Image
+import pytest
 
 from pixelreforge_core import ProcessingCancelled, RestoreSettings, process_image
 from pixelreforge_core.image_io import save_image
 
 
 ROOT = Path(__file__).resolve().parents[1]
+ORIGINAL_FIXTURE = "test-original-32x32px.png"
 
 
 class CoreRestoreTests(unittest.TestCase):
@@ -25,6 +27,7 @@ class CoreRestoreTests(unittest.TestCase):
                 self.assertEqual((original.shape[1], original.shape[0]), result.target_size)
                 np.testing.assert_array_equal(original, np.asarray(result.image))
 
+    @pytest.mark.regression
     def test_processes_real_fixture_and_writes_preview_output(self) -> None:
         input_path = ROOT / "tests" / "fixtures" / "test-jpegs-x4-90.jpg"
         output_path = ROOT / "tests" / "output" / "restored-test-image.png"
@@ -40,8 +43,9 @@ class CoreRestoreTests(unittest.TestCase):
         self.assertEqual(4, result.scale.scale_x)
         self.assertEqual(4, result.scale.scale_y)
 
+    @pytest.mark.regression
     def test_restores_integer_scale_png_fixtures_to_original_pixels(self) -> None:
-        original = Image.open(ROOT / "tests" / "fixtures" / "test-original.png").convert("RGBA")
+        original = Image.open(ROOT / "tests" / "fixtures" / ORIGINAL_FIXTURE).convert("RGBA")
         expected = np.asarray(original)
 
         for fixture_name, scale in (("test-x4.png", 4), ("test-x10.png", 10)):
@@ -55,6 +59,7 @@ class CoreRestoreTests(unittest.TestCase):
                 self.assertGreaterEqual(result.scale.confidence, 0.99)
                 np.testing.assert_array_equal(expected, np.asarray(result.image.convert("RGBA")))
 
+    @pytest.mark.regression
     def test_restores_integer_scale_jpeg_fixtures_to_original_size_with_bounded_error(self) -> None:
         expected = np.asarray(self._original_on_white_background())
 
@@ -96,8 +101,9 @@ class CoreRestoreTests(unittest.TestCase):
         self.assertEqual(4, result.scale.scale_x)
         self.assertEqual(4, result.scale.scale_y)
 
+    @pytest.mark.regression
     def test_resampled_grid_manual_fractional_scale_restores_fixture(self) -> None:
-        original = Image.open(ROOT / "tests" / "fixtures" / "test-original.png").convert("RGBA")
+        original = Image.open(ROOT / "tests" / "fixtures" / ORIGINAL_FIXTURE).convert("RGBA")
         expected = np.asarray(original)
 
         for fixture_name in ("test-x3.6.png", "test-x6.3.png"):
@@ -132,6 +138,7 @@ class CoreRestoreTests(unittest.TestCase):
         self.assertEqual("original-size-override", result.scale.method)
         self.assertAlmostEqual(image.size[0] / 32, result.scale.scale_x)
 
+    @pytest.mark.regression
     def test_noisy_pixel_manual_fractional_scale_uses_resampled_cluster_grid(self) -> None:
         image = Image.open(ROOT / "tests" / "fixtures" / "test-x3.6.png")
         scale = image.size[0] / 32
@@ -150,8 +157,9 @@ class CoreRestoreTests(unittest.TestCase):
         self.assertEqual((32, 32), result.target_size)
         self.assertEqual("resampled-grid-dominant-color-cluster", result.reconstruction["resize_method"])
 
+    @pytest.mark.regression
     def test_auto_uses_resampled_grid_for_fractional_scale_fixtures(self) -> None:
-        original = Image.open(ROOT / "tests" / "fixtures" / "test-original.png").convert("RGBA")
+        original = Image.open(ROOT / "tests" / "fixtures" / ORIGINAL_FIXTURE).convert("RGBA")
         expected = np.asarray(original)
 
         for fixture_name, scale in (("test-x3.6.png", 115 / 32), ("test-x6.3.png", 201 / 32)):
@@ -165,8 +173,9 @@ class CoreRestoreTests(unittest.TestCase):
                 self.assertAlmostEqual(scale, result.scale.scale_y)
                 np.testing.assert_array_equal(expected, np.asarray(result.image.convert("RGBA")))
 
+    @pytest.mark.regression
     def test_auto_handles_different_x_y_scale_fixtures(self) -> None:
-        expected = np.asarray(Image.open(ROOT / "tests" / "fixtures" / "test-original.png").convert("RGBA"))
+        expected = np.asarray(Image.open(ROOT / "tests" / "fixtures" / ORIGINAL_FIXTURE).convert("RGBA"))
 
         cases = (
             ("test-Xx5-Yx6.png", "integer-grid-v1", 5.0, 6.0),
@@ -184,6 +193,7 @@ class CoreRestoreTests(unittest.TestCase):
                 self.assertAlmostEqual(scale_y, result.scale.scale_y)
                 self.assertLessEqual(self._mean_absolute_error(restored, expected), 3.0)
 
+    @pytest.mark.regression
     def test_explicit_ai_pixel_v2_uses_cluster_grid_and_artifact_cleanup(self) -> None:
         image = Image.open(ROOT / "tests" / "fixtures" / "test-ai-2.png")
         image.thumbnail((256, 256))
@@ -226,6 +236,7 @@ class CoreRestoreTests(unittest.TestCase):
                 cancel=lambda: True,
             )
 
+    @pytest.mark.regression
     def test_auto_selects_ai_pixel_v2_for_ai_fixture(self) -> None:
         image = Image.open(ROOT / "tests" / "fixtures" / "test-ai-2.png")
         image.thumbnail((256, 256))
@@ -247,7 +258,7 @@ class CoreRestoreTests(unittest.TestCase):
         return image
 
     def _original_on_white_background(self) -> Image.Image:
-        original = Image.open(ROOT / "tests" / "fixtures" / "test-original.png").convert("RGBA")
+        original = Image.open(ROOT / "tests" / "fixtures" / ORIGINAL_FIXTURE).convert("RGBA")
         background = Image.new("RGBA", original.size, (255, 255, 255, 255))
         background.alpha_composite(original)
         return background.convert("RGB")

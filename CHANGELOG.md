@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Comprehensive algorithm regression matrix test (`test_algorithm_regression.py`) that processes all fixtures against auto mode and records detailed statistics (algorithm used, scale, confidence, analysis scores, palette info, reconstruction details, duration, MAE vs reference) to a JSON output file.
+- New zephyr test fixture series (small, silly, fullbody) covering varied pixel-art styles, crop variants, and JPEG degradation levels for broader algorithm validation.
+- `test-ai-3.png` and `test-ai-4.png` AI fixture images for expanded AI-artifact restoration coverage.
+- `create_job_without_processing()` test helper extracted to reduce repetition in anonymous-session integration tests.
+
+### Changed
+
+- Pytest markers split into `regression` and `performance` categories; default `python -m pytest` runs only fast/default tests (`-m 'not regression and not performance'`), while regression/performance suites run via explicit marker selection.
+- `test_ai_fixtures_pytest.py` now auto-discovers all `test-ai-*.png` fixtures and applies thumbnail resize for faster execution.
+- Session-scope API tests (`test_api.py`) refactored to use `create_job_without_processing()` helper and `zephyr-small-test-x2.png` fixture for cleaner setup.
+- `test_list_jobs_returns_recent_queued_jobs` updated to use PNG fixture instead of JPEG.
+
+### Fixed
+
+- All core and API test references to deleted `test-original.png` renamed to `test-original-32x32px.png` across `test_core_palette.py`, `test_core_restore.py`, and helper methods.
+
 ## [0.1.0] - 2026-07-06
 
 ### Added

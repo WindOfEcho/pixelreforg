@@ -1,3 +1,7 @@
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-ra"
+addopts = "-ra -m 'not regression and not performance'"
+markers = [
+    "regression: full image algorithm quality and diagnostic tests; run manually with `python -m pytest -m regression`.",
+    "performance: load and performance tests; run manually with `python -m pytest -m performance`.",
+]
