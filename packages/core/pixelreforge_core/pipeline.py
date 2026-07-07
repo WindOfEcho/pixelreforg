@@ -42,14 +42,16 @@ def process_image(
 
     _report_progress(progress, "image_reconstruction", 45.0, "Image reconstruction...")
     _raise_if_cancelled(cancel)
+    ai_result_metadata: dict[str, object] = {}
     if algorithm_used == "resampled-grid-v2":
         resize_method = "resampled-grid-majority"
         target_width, target_height = _target_size_from_scale(source_size, scale.scale_x, scale.scale_y)
         restored = downscale_by_resampled_grid(image_array, target_width, target_height, cancel=cancel)
-    elif algorithm_used == "ai-pixel-v2":
-        resize_method = "ai-pixel-v2-resampled-cluster"
+    elif algorithm_used in ("ai-pixel-v2", "ai-grid-hypothesis-v1"):
+        resize_method = "ai-grid-hypothesis-v1-resampled-cluster" if algorithm_used == "ai-grid-hypothesis-v1" else "ai-pixel-v2-resampled-cluster"
         target_width, target_height = _target_size_from_scale(source_size, scale.scale_x, scale.scale_y)
         ai_result = restore_ai_pixel_art(image_array, target_width, target_height, settings.noisy_color_bucket_size, cancel=cancel)
+        ai_result_metadata = ai_result.metadata
         restored = ai_result.image
     elif algorithm_used == "noisy-pixel-v1" and _uses_fractional_grid(scale.scale_x, scale.scale_y):
         resize_method = "resampled-grid-dominant-color-cluster"
@@ -114,7 +116,7 @@ def process_image(
             "noisy_color_bucket_size": settings.noisy_color_bucket_size,
             "fractional_scale_step": settings.fractional_scale_step,
         }
-        | (ai_result.metadata if algorithm_used == "ai-pixel-v2" else {}),
+        | ai_result_metadata,
         warnings=tuple(warnings),
     )
 
@@ -147,6 +149,8 @@ def _resolve_algorithm(settings: RestoreSettings, recommended_algorithm: str) ->
         return "resampled-grid-v2"
     if settings.algorithm == "ai-pixel-v2":
         return "ai-pixel-v2"
+    if settings.algorithm == "ai-grid-hypothesis-v1":
+        return "ai-grid-hypothesis-v1"
     if settings.algorithm == "auto":
         if recommended_algorithm in ("integer-grid-v1", "resampled-grid-v2", "noisy-pixel-v1", "ai-pixel-v2"):
             return recommended_algorithm
@@ -189,12 +193,15 @@ def _should_use_fractional(integer_scale: ScaleEstimate, fractional_scale: Scale
 
 
 def _scale_metadata(scale: ScaleEstimate) -> dict[str, object]:
-    return {
+    metadata = {
         "scale_x": scale.scale_x,
         "scale_y": scale.scale_y,
         "confidence": scale.confidence,
         "method": scale.method,
     }
+    if scale.details is not None:
+        metadata["details"] = scale.details
+    return metadata
 
 
 def _target_size_from_scale(source_size: tuple[int, int], scale_x: float, scale_y: float) -> tuple[int, int]:

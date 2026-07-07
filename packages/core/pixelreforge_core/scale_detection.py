@@ -1,5 +1,6 @@
 import numpy as np
 
+from .ai_grid_hypothesis import detect_ai_grid_hypothesis_scale
 from .models import RestoreSettings, ScaleEstimate
 
 
@@ -24,6 +25,9 @@ def detect_scale(image_array: np.ndarray, settings: RestoreSettings) -> ScaleEst
         return ScaleEstimate(scale_x, scale_y, 1.0, 1.0, "manual")
     if settings.scale_mode != "auto":
         raise ValueError(f"Unsupported scale mode: {settings.scale_mode}")
+
+    if settings.algorithm == "ai-grid-hypothesis-v1":
+        return detect_ai_grid_hypothesis_scale(image_array, settings)
 
     max_scale_x = min(settings.max_scale, max(1, width // 2))
     max_scale_y = min(settings.max_scale, max(1, height // 2))

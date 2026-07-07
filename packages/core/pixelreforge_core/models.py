@@ -5,7 +5,7 @@ from PIL import Image
 
 
 ScaleMode = Literal["auto", "manual"]
-RestoreAlgorithm = Literal["auto", "integer-grid-v1", "resampled-grid-v2", "noisy-pixel-v1", "ai-pixel-v2"]
+RestoreAlgorithm = Literal["auto", "integer-grid-v1", "resampled-grid-v2", "noisy-pixel-v1", "ai-pixel-v2", "ai-grid-hypothesis-v1"]
 PaletteCleanupMode = Literal["off", "light", "medium", "strong", "custom"]
 ProgressCallback = Callable[[str, float, str], None]
 CancelCallback = Callable[[], bool]
@@ -40,6 +40,7 @@ class ScaleEstimate:
     confidence_x: float
     confidence_y: float
     method: str
+    details: dict[str, Any] | None = None
 
     @property
     def confidence(self) -> float:

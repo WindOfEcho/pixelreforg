@@ -210,6 +210,41 @@ class CoreRestoreTests(unittest.TestCase):
         self.assertEqual("isolated-pixel-neighborhood", result.reconstruction["artifact_cleanup"])
         self.assertIn("isolated_pixels_replaced", result.reconstruction)
 
+    def test_ai_grid_hypothesis_restores_synthetic_pixel_art_grid(self) -> None:
+        original = self._make_synthetic_pixel_art()
+        enlarged = np.repeat(np.repeat(original, 4, axis=0), 4, axis=1)
+
+        result = process_image(
+            Image.fromarray(enlarged, mode="RGB"),
+            RestoreSettings(algorithm="ai-grid-hypothesis-v1", scale_mode="auto", min_scale=2, max_scale=8),
+        )
+
+        self.assertEqual("ai-grid-hypothesis-v1", result.algorithm_used)
+        self.assertEqual((original.shape[1], original.shape[0]), result.target_size)
+        self.assertEqual("ai-grid-hypothesis-v1", result.scale.method)
+        self.assertGreater(result.scale.confidence, 0.0)
+        self.assertEqual("ai-grid-hypothesis-v1-resampled-cluster", result.reconstruction["resize_method"])
+        self.assertIn("top_candidates", result.analysis["scale_detection"]["details"])
+
+    @pytest.mark.regression
+    def test_ai_grid_hypothesis_estimates_smaller_grid_for_ai_fixture(self) -> None:
+        image = Image.open(ROOT / "tests" / "fixtures" / "test-ai-2.png")
+        image.thumbnail((256, 256))
+        source_size = image.size
+
+        result = process_image(
+            image,
+            RestoreSettings(algorithm="ai-grid-hypothesis-v1", scale_mode="auto", min_scale=2, max_scale=16),
+        )
+
+        self.assertEqual("ai-grid-hypothesis-v1", result.algorithm_used)
+        self.assertLess(result.target_size[0], source_size[0])
+        self.assertLess(result.target_size[1], source_size[1])
+        self.assertEqual("isolated-pixel-neighborhood", result.reconstruction["artifact_cleanup"])
+        candidates = result.analysis["scale_detection"]["details"]["top_candidates"]
+        self.assertGreaterEqual(len(candidates), 2)
+        self.assertEqual(list(result.target_size), candidates[0]["target_size"])
+
     def test_progress_callback_receives_pipeline_stages(self) -> None:
         image = Image.open(ROOT / "tests" / "fixtures" / "test-x4.png")
         stages: list[tuple[str, float, str]] = []

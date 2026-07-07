@@ -26,6 +26,7 @@ class RegressionCase:
     expected_size: tuple[int, int] | None = None
     reference_name: str | None = None
     thumbnail_max_size: int | None = None
+    case_name: str | None = None
 
 
 BASE_REGRESSION_CASES = (
@@ -55,11 +56,22 @@ AI_REGRESSION_CASES = tuple(
         path.name,
         RestoreSettings(algorithm="auto", scale_mode="auto", min_scale=1, max_scale=16),
         thumbnail_max_size=256,
+        case_name=f"{path.name}:auto",
     )
     for path in sorted(FIXTURES.glob("test-ai-*.png"))
 )
 
-REGRESSION_CASES = BASE_REGRESSION_CASES + AI_REGRESSION_CASES
+AI_GRID_HYPOTHESIS_CASES = tuple(
+    RegressionCase(
+        path.name,
+        RestoreSettings(algorithm="ai-grid-hypothesis-v1", scale_mode="auto", min_scale=2, max_scale=16),
+        thumbnail_max_size=256,
+        case_name=f"{path.name}:ai-grid-hypothesis-v1",
+    )
+    for path in sorted(FIXTURES.glob("test-ai-*.png"))
+)
+
+REGRESSION_CASES = BASE_REGRESSION_CASES + AI_REGRESSION_CASES + AI_GRID_HYPOTHESIS_CASES
 
 
 def test_algorithm_regression_matrix_records_statistics() -> None:
@@ -84,6 +96,7 @@ def _run_case(case: RegressionCase) -> dict[str, object]:
     duration_ms = (perf_counter() - started) * 1000.0
 
     record: dict[str, object] = {
+        "case": case.case_name or case.fixture_name,
         "fixture": case.fixture_name,
         "original_source_size": list(original_source_size),
         "source_size": list(result.source_size),
@@ -101,6 +114,8 @@ def _run_case(case: RegressionCase) -> dict[str, object]:
         "resize_method": (result.reconstruction or {}).get("resize_method"),
         "duration_ms": round(duration_ms, 3),
     }
+    if result.scale.details is not None:
+        record["scale_details"] = result.scale.details
 
     if result.analysis is not None:
         record["recommended_algorithm"] = result.analysis.get("recommended_algorithm")

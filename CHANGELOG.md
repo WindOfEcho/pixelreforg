@@ -9,10 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Comprehensive algorithm regression matrix test (`test_algorithm_regression.py`) that processes all fixtures against auto mode and records detailed statistics (algorithm used, scale, confidence, analysis scores, palette info, reconstruction details, duration, MAE vs reference) to a JSON output file.
-- New zephyr test fixture series (small, silly, fullbody) covering varied pixel-art styles, crop variants, and JPEG degradation levels for broader algorithm validation.
-- `test-ai-3.png` and `test-ai-4.png` AI fixture images for expanded AI-artifact restoration coverage.
-- `create_job_without_processing()` test helper extracted to reduce repetition in anonymous-session integration tests.
+- Core explicit `ai-grid-hypothesis-v1` algorithm for AI pixel-grid estimation (`ai_grid_hypothesis.py`): scores candidate grid hypotheses using reconstruction MAE, palette compactness, edge boundary alignment, scale prior (Gaussian over log-scale centred at 6×), and X/Y scale consistency.
+- `ScaleEstimate.details` metadata field with `top_candidates` (up to 5 highest-scoring target-size/scale/component breakdowns) and `candidate_count`.
+- Pipeline wiring for `ai-grid-hypothesis-v1`: routes through `restore_ai_pixel_art` with `ai-grid-hypothesis-v1-resampled-cluster` resize method; scale-detail metadata propagated into job result `analysis.scale_detection.details`.
+- Core unit tests for synthetic pixel-art grid restoration and AI fixture downscale estimation with top-candidate assertions (`test_core_restore.py`).
+- Regression matrix cases for `ai-grid-hypothesis-v1` applied to all `test-ai-*.png` fixtures with `case_name` disambiguation and `scale_details` output recording (`test_algorithm_regression.py`).
 
 ### Changed
 
