@@ -162,7 +162,7 @@ def _select_scale_and_algorithm(
     image_array: np.ndarray,
     source_format: str | None,
     settings: RestoreSettings,
-) -> tuple[ScaleEstimate, PreflightAnalysis, str, dict[str, object]]:
+) -> tuple[ScaleEstimate, PreflightAnalysis, str, dict[str, dict[str, object]] | dict[str,object]]:
     if settings.algorithm != "auto":
         scale = detect_scale(image_array, settings)
         preflight = analyze_image(image_array, source_format, scale.confidence)
