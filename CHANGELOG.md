@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- API regression test for `ai-grid-hypothesis-v1` processing tiny PNG fixture via explicit algorithm parameter (`test_api.py`).
+- Help text for the AI grid hypothesis algorithm with description, impact, and example usage (`help.ts`).
+- "AI grid hypothesis" algorithm option rendered in the SettingsPanel radio group via the shared `RESTORE_ALGORITHM_OPTIONS` list.
+- API `RestoreAlgorithm` literal accepts `ai-grid-hypothesis-v1` for algorithm validation on job creation (`models.py`).
+- Shared frontend algorithm metadata registry (`RESTORE_ALGORITHM_OPTIONS`) with label, helpId, descriptions, and per-algorithm support flags (`supportsScale`, `supportsFractional`, `supportsColorBucket`).
+- Reusable algorithm support-check helpers (`supportsScaleControls`, `supportsFractionalControls`, `supportsColorBucketControls`) in `restoration/algorithms.ts`.
+- Frontend `RestoreAlgorithm` type includes `'ai-grid-hypothesis-v1'` in the union (`types.ts`).
 - Core explicit `ai-grid-hypothesis-v1` algorithm for AI pixel-grid estimation (`ai_grid_hypothesis.py`): scores candidate grid hypotheses using reconstruction MAE, palette compactness, edge boundary alignment, scale prior (Gaussian over log-scale centred at 6×), and X/Y scale consistency.
 - `ScaleEstimate.details` metadata field with `top_candidates` (up to 5 highest-scoring target-size/scale/component breakdowns) and `candidate_count`.
 - Pipeline wiring for `ai-grid-hypothesis-v1`: routes through `restore_ai_pixel_art` with `ai-grid-hypothesis-v1-resampled-cluster` resize method; scale-detail metadata propagated into job result `analysis.scale_detection.details`.
@@ -17,10 +24,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Process page `currentSettings()` resolves scale mode via shared `supportsScaleControls` helper instead of inline condition (`+page.svelte`).
+- SettingsPanel uses shared `supportsScaleControls`/`supportsFractionalControls`/`supportsColorBucketControls` from `algorithms.ts` to gate setting cards instead of separate local logic.
 - Pytest markers split into `regression` and `performance` categories; default `python -m pytest` runs only fast/default tests (`-m 'not regression and not performance'`), while regression/performance suites run via explicit marker selection.
 - `test_ai_fixtures_pytest.py` now auto-discovers all `test-ai-*.png` fixtures and applies thumbnail resize for faster execution.
 - Session-scope API tests (`test_api.py`) refactored to use `create_job_without_processing()` helper and `zephyr-small-test-x2.png` fixture for cleaner setup.
 - `test_list_jobs_returns_recent_queued_jobs` updated to use PNG fixture instead of JPEG.
+- ResultPanel preview auto-fits image to available viewport (fit scale capped at 1×); zoom slider scales from fit level upward (zoom-in only); slider comparison pane supports drag-pan via pointer events; images marked `draggable="false"`; panning restricted to primary mouse button.
+- Scale and confidence metadata values formatted with two decimal places via new `formatDecimal` helper (`ResultPanel.svelte`).
+- Smart auto preflight (`preflight.py`) now routes AI-detected images to `ai-grid-hypothesis-v1` instead of `ai-pixel-v2`.
+- Pipeline `_resolve_algorithm` and `_select_scale_and_algorithm` propagate `ai-grid-hypothesis-v1` through auto mode, producing `ai_grid_hypothesis` scale metadata in job results.
+- Help text updated: "AI pixel v2" references replaced with "AI grid hypothesis"; color bucket help extended to cover both Noisy pixel and AI grid hypothesis contexts (`help.ts`).
+- Core and API test assertions updated to expect `ai-grid-hypothesis-v1` algorithm in auto mode for AI fixtures; test `test_auto_selects_ai_pixel_v2_for_ai_fixture` renamed to `test_auto_selects_ai_grid_hypothesis_for_ai_fixture`.
+
+### Removed
+
+- `ai-pixel-v2` algorithm option removed from selectable SettingsPanel radio group (kept as compatibility literal in `RestoreAlgorithm` type union and explicit backend path).
 
 ### Fixed
 

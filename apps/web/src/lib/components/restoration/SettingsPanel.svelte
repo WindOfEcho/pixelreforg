@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button';
 	import { Slider } from '$lib/components/ui/slider';
+	import { RESTORE_ALGORITHM_OPTIONS, algorithmOptionFor, supportsColorBucketControls, supportsFractionalControls, supportsScaleControls } from '$lib/restoration/algorithms';
 	import type { PaletteCleanupMode, RestoreAlgorithm, ScaleMode } from '$lib/types';
 	import HelpButton from './HelpButton.svelte';
 	import { helpFor } from './help';
@@ -57,13 +58,7 @@
 			: 'border-[var(--color-border)] bg-[rgba(47,38,48,0.52)] text-[var(--color-text-muted)]';
 	}
 
-	function supportsScaleControls(value: RestoreAlgorithm) {
-		return value === 'integer-grid-v1' || value === 'resampled-grid-v2' || value === 'noisy-pixel-v1' || value === 'ai-pixel-v2';
-	}
-
-	function supportsFractionalControls(value: RestoreAlgorithm) {
-		return value === 'resampled-grid-v2' || value === 'noisy-pixel-v1' || value === 'ai-pixel-v2';
-	}
+	let selectedAlgorithm = $derived(algorithmOptionFor(algorithm));
 </script>
 
 <section class="rounded-[1.75rem] border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-[var(--shadow-panel)] backdrop-blur md:p-7" aria-labelledby="settings-title">
@@ -79,48 +74,22 @@
 				<span>Algorithm</span>
 			</div>
 			<div class="grid grid-cols-1 gap-2 md:grid-cols-2" role="radiogroup" aria-label="Restore algorithm">
-				<label class={[modeClass(algorithm === 'auto'), 'flex min-h-12 cursor-pointer flex-col justify-center gap-1 rounded-2xl border px-4 py-3 text-xl']}>
-					<span class="flex items-center gap-2"><input type="radio" bind:group={algorithm} value="auto" disabled={isProcessing} /> Smart auto <HelpButton help={helpFor('algorithm-auto-help')} /></span>
-					<small class="readable-copy text-sm text-[var(--color-text-muted)]">Default. Selects an algorithm automatically.</small>
-				</label>
-				<label class={[modeClass(algorithm === 'integer-grid-v1'), 'flex min-h-12 cursor-pointer flex-col justify-center gap-1 rounded-2xl border px-4 py-3 text-xl']}>
-					<span class="flex items-center gap-2"><input type="radio" bind:group={algorithm} value="integer-grid-v1" disabled={isProcessing} /> Fast integer <HelpButton help={helpFor('algorithm-integer-help')} /></span>
-					<small class="readable-copy text-sm text-[var(--color-text-muted)]">For clean pixel art.</small>
-				</label>
-				<label class={[modeClass(algorithm === 'resampled-grid-v2'), 'flex min-h-12 cursor-pointer flex-col justify-center gap-1 rounded-2xl border px-4 py-3 text-xl']}>
-					<span class="flex items-center gap-2"><input type="radio" bind:group={algorithm} value="resampled-grid-v2" disabled={isProcessing} /> Resampled v2 <HelpButton help={helpFor('algorithm-resampled-help')} /></span>
-					<small class="readable-copy text-sm text-[var(--color-text-muted)]">For fractional scale and known original size.</small>
-				</label>
-				<label class={[modeClass(algorithm === 'noisy-pixel-v1'), 'flex min-h-12 cursor-pointer flex-col justify-center gap-1 rounded-2xl border px-4 py-3 text-xl']}>
-					<span class="flex items-center gap-2"><input type="radio" bind:group={algorithm} value="noisy-pixel-v1" disabled={isProcessing} /> Noisy pixel <HelpButton help={helpFor('algorithm-noisy-help')} /></span>
-					<small class="readable-copy text-sm text-[var(--color-text-muted)]">For JPEG and AI artifacts.</small>
-				</label>
-				<label class={[modeClass(algorithm === 'ai-pixel-v2'), 'flex min-h-12 cursor-pointer flex-col justify-center gap-1 rounded-2xl border px-4 py-3 text-xl']}>
-					<span class="flex items-center gap-2"><input type="radio" bind:group={algorithm} value="ai-pixel-v2" disabled={isProcessing} /> AI pixel v2 <HelpButton help={helpFor('algorithm-ai-help')} /></span>
-					<small class="readable-copy text-sm text-[var(--color-text-muted)]">Explicit mode for rough AI pixel art.</small>
-				</label>
+				{#each RESTORE_ALGORITHM_OPTIONS as option (option.id)}
+					<label class={[modeClass(algorithm === option.id), 'flex min-h-12 cursor-pointer flex-col justify-center gap-1 rounded-2xl border px-4 py-3 text-xl']}>
+						<span class="flex items-center gap-2"><input type="radio" bind:group={algorithm} value={option.id} disabled={isProcessing} /> {option.label} <HelpButton help={helpFor(option.helpId)} /></span>
+						<small class="readable-copy text-sm text-[var(--color-text-muted)]">{option.shortDescription}</small>
+					</label>
+				{/each}
 			</div>
 
-			{#if algorithm === 'auto'}
+			{#if selectedAlgorithm}
 				<p class="readable-copy m-0 leading-7 text-[var(--color-text-muted)]">
-					Auto mode runs preflight analysis and selects Fast integer or Noisy pixel depending on detected artifacts.
-				</p>
-			{:else if algorithm === 'noisy-pixel-v1'}
-				<p class="readable-copy m-0 leading-7 text-[var(--color-text-muted)]">
-					Noisy pixel uses cluster-based reconstruction for JPEG and AI color artifacts. It can also use fractional manual scale or original size.
-				</p>
-			{:else if algorithm === 'resampled-grid-v2'}
-				<p class="readable-copy m-0 leading-7 text-[var(--color-text-muted)]">
-					Resampled v2 restores non-integer upscales. Use manual scale or Advanced original size for best quality.
-				</p>
-			{:else if algorithm === 'ai-pixel-v2'}
-				<p class="readable-copy m-0 leading-7 text-[var(--color-text-muted)]">
-					AI pixel v2 uses fractional grid recovery, color clustering, and isolated artifact cleanup. Smart auto will not select it yet.
+					{selectedAlgorithm.description}
 				</p>
 			{/if}
 		</div>
 
-		{#if algorithm === 'noisy-pixel-v1' || algorithm === 'ai-pixel-v2'}
+		{#if supportsColorBucketControls(algorithm)}
 			<label class={settingCardClass}>
 				<div class="readable-copy flex items-center gap-2 text-sm font-medium leading-5 tracking-normal text-[var(--color-text)]">
 					<span>Color bucket size</span>

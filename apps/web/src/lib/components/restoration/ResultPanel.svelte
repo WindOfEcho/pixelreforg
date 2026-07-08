@@ -7,7 +7,7 @@
 	import { buttonClass } from '$lib/components/ui/button/button.styles';
 
 	type PreviewMode = 'side-by-side' | 'slider';
-	type PreviewPane = 'source' | 'result';
+	type PreviewPane = 'source' | 'result' | 'slider';
 
 	let {
 		isProcessing,
@@ -28,6 +28,13 @@
 	let zoom = $state(1);
 	let sourceViewport = $state<HTMLDivElement | null>(null);
 	let resultViewport = $state<HTMLDivElement | null>(null);
+	let sliderViewport = $state<HTMLDivElement | null>(null);
+	let sourceViewportWidth = $state(0);
+	let sourceViewportHeight = $state(0);
+	let resultViewportWidth = $state(0);
+	let resultViewportHeight = $state(0);
+	let sliderViewportWidth = $state(0);
+	let sliderViewportHeight = $state(0);
 	let syncingScroll = false;
 	let dragStart: { pane: PreviewPane; x: number; y: number; left: number; top: number } | null = null;
 
@@ -43,7 +50,20 @@
 		}
 		return { width: 720, height: 480 };
 	});
-	const compareStyle = $derived(`width: ${compareSize.width * zoom}px; height: ${compareSize.height * zoom}px;`);
+	const previewBounds = $derived.by(() => {
+		if (mode === 'slider') return { width: sliderViewportWidth, height: sliderViewportHeight };
+
+		const width = smallestPositive(sourcePreviewUrl ? sourceViewportWidth : 0, resultViewportWidth);
+		const height = smallestPositive(sourcePreviewUrl ? sourceViewportHeight : 0, resultViewportHeight);
+		return { width, height };
+	});
+	const fitScale = $derived.by(() => {
+		const availableWidth = Math.max(1, previewBounds.width - 32);
+		const availableHeight = Math.max(1, previewBounds.height - 32);
+		return Math.min(1, availableWidth / compareSize.width, availableHeight / compareSize.height);
+	});
+	const displayScale = $derived(fitScale * zoom);
+	const compareStyle = $derived(`width: ${compareSize.width * displayScale}px; height: ${compareSize.height * displayScale}px;`);
 	const recommendedAlgorithm = $derived(
 		typeof metadata?.analysis?.recommended_algorithm === 'string' ? metadata.analysis.recommended_algorithm : null
 	);
@@ -109,6 +129,7 @@
 	}
 
 	function syncScroll(from: PreviewPane) {
+		if (from === 'slider') return;
 		if (syncingScroll) return;
 		const source = from === 'source' ? sourceViewport : resultViewport;
 		const target = from === 'source' ? resultViewport : sourceViewport;
@@ -123,16 +144,19 @@
 	}
 
 	function startPan(event: PointerEvent, pane: PreviewPane) {
-		const viewport = pane === 'source' ? sourceViewport : resultViewport;
+		if (event.button !== 0) return;
+		const viewport = viewportFor(pane);
 		if (!viewport) return;
+		event.preventDefault();
 		dragStart = { pane, x: event.clientX, y: event.clientY, left: viewport.scrollLeft, top: viewport.scrollTop };
 		viewport.setPointerCapture(event.pointerId);
 	}
 
 	function pan(event: PointerEvent) {
 		if (!dragStart) return;
-		const viewport = dragStart.pane === 'source' ? sourceViewport : resultViewport;
+		const viewport = viewportFor(dragStart.pane);
 		if (!viewport) return;
+		event.preventDefault();
 		viewport.scrollLeft = dragStart.left - (event.clientX - dragStart.x);
 		viewport.scrollTop = dragStart.top - (event.clientY - dragStart.y);
 		syncScroll(dragStart.pane);
@@ -148,6 +172,21 @@
 		const deltaScale = event.deltaMode === WheelEvent.DOM_DELTA_LINE ? 16 : event.deltaMode === WheelEvent.DOM_DELTA_PAGE ? window.innerHeight : 1;
 		event.preventDefault();
 		window.scrollBy({ left: event.deltaX * deltaScale, top: event.deltaY * deltaScale, behavior: 'auto' });
+	}
+
+	function viewportFor(pane: PreviewPane): HTMLDivElement | null {
+		if (pane === 'source') return sourceViewport;
+		if (pane === 'result') return resultViewport;
+		return sliderViewport;
+	}
+
+	function smallestPositive(...values: number[]): number {
+		const positiveValues = values.filter((value) => value > 0);
+		return positiveValues.length > 0 ? Math.min(...positiveValues) : 0;
+	}
+
+	function formatDecimal(value: number | null | undefined): string {
+		return typeof value === 'number' && Number.isFinite(value) ? value.toFixed(2) : 'unknown';
 	}
 </script>
 
@@ -171,7 +210,7 @@
 				<Button variant={controlVariant(mode === 'slider')} type="button" onclick={() => (mode = 'slider')} disabled={!sourcePreviewUrl}>Slider</Button>
 			</div>
 			<div class="grid min-w-48 gap-1">
-				<label class="readable-copy text-sm text-[var(--color-text-muted)]" for="zoom-range">Zoom {zoom.toFixed(1)}x</label>
+				<label class="readable-copy text-sm text-[var(--color-text-muted)]" for="zoom-range">Zoom {zoom.toFixed(2)}x</label>
 				<Slider id="zoom-range" min={1} max={4} step={0.25} bind:value={zoom} />
 			</div>
 		</div>
@@ -182,12 +221,23 @@
 				<Slider id="split-range" min={0} max={100} step={1} bind:value={split} />
 			</div>
 			<figure class="w-full max-w-full min-w-0 overflow-hidden">
-				<div class="pixel-preview h-[min(68vh,42rem)] min-h-96 w-full max-w-full min-w-0 overflow-auto rounded-[1.25rem] p-4" onwheel={scrollPageFromPreview}>
+				<div
+					class="pixel-preview h-[min(68vh,42rem)] min-h-96 w-full max-w-full min-w-0 cursor-grab overflow-auto rounded-[1.25rem] p-4 active:cursor-grabbing"
+					role="presentation"
+					bind:this={sliderViewport}
+					bind:clientWidth={sliderViewportWidth}
+					bind:clientHeight={sliderViewportHeight}
+					onwheel={scrollPageFromPreview}
+					onpointerdown={(event) => startPan(event, 'slider')}
+					onpointermove={pan}
+					onpointerup={stopPan}
+					onpointercancel={stopPan}
+				>
 					<div class="grid min-h-full min-w-full place-items-center">
 						<div class="relative max-w-none shrink-0" style={compareStyle}>
-							<img class="pixelated absolute inset-0 size-full object-fill" src={resultPreviewUrl} alt="Restored result preview" />
+							<img class="pixelated absolute inset-0 size-full object-fill" src={resultPreviewUrl} alt="Restored result preview" draggable="false" />
 							<div class="absolute inset-0 overflow-hidden" style={`clip-path: inset(0 ${100 - split}% 0 0);`} aria-hidden="true">
-								<img class="pixelated size-full object-fill" src={sourcePreviewUrl} alt="" />
+								<img class="pixelated size-full object-fill" src={sourcePreviewUrl} alt="" draggable="false" />
 							</div>
 						</div>
 					</div>
@@ -205,6 +255,8 @@
 							class="pixel-preview grid h-[min(68vh,42rem)] min-h-96 w-full max-w-full min-w-0 cursor-grab place-items-center overflow-auto rounded-[1.25rem] p-4 active:cursor-grabbing"
 							role="presentation"
 							bind:this={sourceViewport}
+							bind:clientWidth={sourceViewportWidth}
+							bind:clientHeight={sourceViewportHeight}
 							onscroll={() => syncScroll('source')}
 							onwheel={scrollPageFromPreview}
 							onpointerdown={(event) => startPan(event, 'source')}
@@ -222,6 +274,8 @@
 						class="pixel-preview grid h-[min(68vh,42rem)] min-h-96 w-full max-w-full min-w-0 cursor-grab place-items-center overflow-auto rounded-[1.25rem] p-4 active:cursor-grabbing"
 						role="presentation"
 						bind:this={resultViewport}
+						bind:clientWidth={resultViewportWidth}
+						bind:clientHeight={resultViewportHeight}
 						onscroll={() => syncScroll('result')}
 						onwheel={scrollPageFromPreview}
 						onpointerdown={(event) => startPan(event, 'result')}
@@ -254,9 +308,9 @@
 			{/if}
 			<div><dt class="flex items-center gap-2 text-[var(--color-text-soft)]">Source size <HelpButton help={metadataHelp.source} /></dt><dd class="m-0 mt-1 break-words text-[var(--color-text)]">{metadata.source_size?.join(' x ') ?? 'unknown'}</dd></div>
 			<div><dt class="flex items-center gap-2 text-[var(--color-text-soft)]">Result size <HelpButton help={metadataHelp.result} /></dt><dd class="m-0 mt-1 break-words text-[var(--color-text)]">{metadata.target_size?.join(' x ') ?? 'unknown'}</dd></div>
-			<div><dt class="flex items-center gap-2 text-[var(--color-text-soft)]">Scale <HelpButton help={metadataHelp.scale} /></dt><dd class="m-0 mt-1 break-words text-[var(--color-text)]">{metadata.scale_x ?? '?'}x / {metadata.scale_y ?? '?'}y</dd></div>
+			<div><dt class="flex items-center gap-2 text-[var(--color-text-soft)]">Scale <HelpButton help={metadataHelp.scale} /></dt><dd class="m-0 mt-1 break-words text-[var(--color-text)]">{formatDecimal(metadata.scale_x)}x / {formatDecimal(metadata.scale_y)}y</dd></div>
 			<div><dt class="flex items-center gap-2 text-[var(--color-text-soft)]">Method <HelpButton help={metadataHelp.method} /></dt><dd class="m-0 mt-1 break-words text-[var(--color-text)]">{metadata.scale_method ?? 'unknown'}</dd></div>
-			<div><dt class="flex items-center gap-2 text-[var(--color-text-soft)]">Confidence <HelpButton help={metadataHelp.confidence} /></dt><dd class="m-0 mt-1 break-words text-[var(--color-text)]">{metadata.confidence?.toFixed(3) ?? 'unknown'}</dd></div>
+			<div><dt class="flex items-center gap-2 text-[var(--color-text-soft)]">Confidence <HelpButton help={metadataHelp.confidence} /></dt><dd class="m-0 mt-1 break-words text-[var(--color-text)]">{formatDecimal(metadata.confidence)}</dd></div>
 			<div><dt class="flex items-center gap-2 text-[var(--color-text-soft)]">Palette cleanup <HelpButton help={metadataHelp.palette} /></dt><dd class="m-0 mt-1 break-words text-[var(--color-text)]">{metadata.palette_cleanup ?? 'off'} · {paletteColorSummary} colors</dd></div>
 		</dl>
 	{/if}

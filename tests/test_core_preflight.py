@@ -67,7 +67,7 @@ class CorePreflightTests(unittest.TestCase):
                 self.assertGreaterEqual(analysis.noise_score, 0.0)
                 self.assertGreaterEqual(analysis.ai_artifact_score, 0.0)
                 self.assertGreater(analysis.unique_color_count, 0)
-                self.assertIn(analysis.recommended_algorithm, ("integer-grid-v1", "noisy-pixel-v1", "ai-pixel-v2"))
+                self.assertIn(analysis.recommended_algorithm, ("integer-grid-v1", "noisy-pixel-v1", "ai-grid-hypothesis-v1"))
                 self.assertGreaterEqual(analysis.ai_pixel_v2_score, 0.0)
 
     def test_palette_cleanup_setting_is_recorded_not_applied(self) -> None:

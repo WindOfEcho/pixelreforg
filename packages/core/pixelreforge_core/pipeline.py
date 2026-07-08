@@ -152,7 +152,7 @@ def _resolve_algorithm(settings: RestoreSettings, recommended_algorithm: str) ->
     if settings.algorithm == "ai-grid-hypothesis-v1":
         return "ai-grid-hypothesis-v1"
     if settings.algorithm == "auto":
-        if recommended_algorithm in ("integer-grid-v1", "resampled-grid-v2", "noisy-pixel-v1", "ai-pixel-v2"):
+        if recommended_algorithm in ("integer-grid-v1", "resampled-grid-v2", "noisy-pixel-v1", "ai-pixel-v2", "ai-grid-hypothesis-v1"):
             return recommended_algorithm
         return "integer-grid-v1"
     raise NotImplementedError(f"Restore algorithm is not implemented yet: {settings.algorithm}")
@@ -173,7 +173,9 @@ def _select_scale_and_algorithm(
     preflight = analyze_image(image_array, source_format, max(integer_scale.confidence, fractional_scale.confidence))
     algorithm_used = _resolve_algorithm(settings, preflight.recommended_algorithm)
 
-    if algorithm_used == "integer-grid-v1" and _should_use_fractional(integer_scale, fractional_scale):
+    if algorithm_used == "ai-grid-hypothesis-v1":
+        scale = detect_scale(image_array, replace(settings, algorithm="ai-grid-hypothesis-v1"))
+    elif algorithm_used == "integer-grid-v1" and _should_use_fractional(integer_scale, fractional_scale):
         algorithm_used = "resampled-grid-v2"
         scale = fractional_scale
     elif algorithm_used == "noisy-pixel-v1" and fractional_scale.confidence >= integer_scale.confidence:
@@ -181,7 +183,10 @@ def _select_scale_and_algorithm(
     else:
         scale = integer_scale
 
-    return scale, preflight, algorithm_used, {"integer": _scale_metadata(integer_scale), "fractional": _scale_metadata(fractional_scale)}
+    metadata = {"integer": _scale_metadata(integer_scale), "fractional": _scale_metadata(fractional_scale)}
+    if algorithm_used == "ai-grid-hypothesis-v1":
+        metadata["ai_grid_hypothesis"] = _scale_metadata(scale)
+    return scale, preflight, algorithm_used, metadata
 
 
 def _should_use_fractional(integer_scale: ScaleEstimate, fractional_scale: ScaleEstimate) -> bool:

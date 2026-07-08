@@ -129,7 +129,7 @@ def _recommend_algorithm(jpeg_score: float, ai_score: float, ai_pixel_v2_score: 
         reasons.append("palette fragmentation is strong")
         if grid_confidence < 0.50:
             reasons.append("integer grid confidence is low")
-        return "ai-pixel-v2", _clamp01(ai_pixel_v2_score), reasons
+        return "ai-grid-hypothesis-v1", _clamp01(ai_pixel_v2_score), reasons
 
     noisy_score = max(jpeg_score, ai_score)
     if noisy_score >= 0.55:

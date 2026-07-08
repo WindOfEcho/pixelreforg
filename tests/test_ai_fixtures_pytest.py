@@ -23,8 +23,8 @@ def test_ai_fixtures_auto_pipeline_returns_metadata_without_crashing(fixture_nam
     assert result.image.size[1] >= 1
     assert result.analysis is not None
     assert result.analysis["unique_color_count"] > 0
-    assert result.algorithm_used == "ai-pixel-v2"
-    assert result.analysis["recommended_algorithm"] == "ai-pixel-v2"
+    assert result.algorithm_used == "ai-grid-hypothesis-v1"
+    assert result.analysis["recommended_algorithm"] == "ai-grid-hypothesis-v1"
     assert result.analysis["ai_pixel_v2_score"] >= 0.70
     assert result.palette is not None
     assert "color_count_after" in result.palette

@@ -5,6 +5,7 @@
 	import SettingsPanel from '$lib/components/restoration/SettingsPanel.svelte';
 	import UploadPanel, { SUPPORTED_IMAGE_ACCEPT } from '$lib/components/restoration/UploadPanel.svelte';
 	import { cancelJob, createJob, downloadResult, getJob } from '$lib/api';
+	import { supportsScaleControls } from '$lib/restoration/algorithms';
 	import type { JobMetadata, PaletteCleanupMode, RestoreAlgorithm, RestoreSettings, ScaleMode } from '$lib/types';
 	import { logUiError, userErrorMessage } from '$lib/ui/errors';
 	import type { NotificationTone, UiNotification } from '$lib/ui/types';
@@ -156,7 +157,7 @@
 	}
 
 	function currentSettings(): RestoreSettings {
-		const resolvedScaleMode = algorithm === 'integer-grid-v1' || algorithm === 'resampled-grid-v2' || algorithm === 'noisy-pixel-v1' || algorithm === 'ai-pixel-v2' ? scaleMode : 'auto';
+		const resolvedScaleMode = supportsScaleControls(algorithm) ? scaleMode : 'auto';
 		return {
 			algorithm,
 			scaleMode: resolvedScaleMode,

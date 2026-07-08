@@ -271,6 +271,27 @@ def test_explicit_noisy_pixel_algorithm_processes_fixture(client: TestClient, wo
     assert metadata["palette"]["cleanup_applied"] is True
 
 
+def test_explicit_ai_grid_hypothesis_algorithm_processes_tiny_fixture(client: TestClient, worker: JobWorker) -> None:
+    fixture_path = ROOT / "tests" / "fixtures" / "zephyr-small-test-x2.png"
+
+    with fixture_path.open("rb") as image_file:
+        create_response = client.post(
+            "/api/jobs?algorithm=ai-grid-hypothesis-v1&scale_mode=auto&min_scale=2&max_scale=8&palette_cleanup=off",
+            files={"file": ("zephyr-small-test-x2.png", image_file, "image/png")},
+        )
+
+    assert create_response.status_code == 202
+    job_id = create_response.json()["job_id"]
+    assert worker.run_once() is True
+
+    metadata = client.get(f"/api/jobs/{job_id}").json()
+    assert metadata["status"] == "completed"
+    assert metadata["algorithm_requested"] == "ai-grid-hypothesis-v1"
+    assert metadata["algorithm_used"] == "ai-grid-hypothesis-v1"
+    assert metadata["reconstruction"]["resize_method"] == "ai-grid-hypothesis-v1-resampled-cluster"
+    assert metadata["target_size"][0] < metadata["source_size"][0]
+
+
 @pytest.mark.performance
 def test_explicit_ai_pixel_v2_algorithm_processes_fixture(client: TestClient, worker: JobWorker) -> None:
     fixture_path = ROOT / "tests" / "fixtures" / "test-ai-2.png"

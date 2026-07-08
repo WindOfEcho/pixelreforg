@@ -5,8 +5,8 @@ const helpItems: HelpText[] = [
 		id: 'algorithm-help',
 		label: 'Algorithm',
 		description: 'Selects the restoration pipeline used for the image.',
-		impact: 'Fast integer is the stable default. Smart auto uses preflight analysis. Noisy pixel handles JPEG artifacts. AI pixel v2 is explicit-only for rough AI pixel art.',
-		example: 'Use Fast integer for clean PNG upscales; use Smart auto or Noisy pixel for JPEG; choose AI pixel v2 manually for AI-generated pixel art.'
+		impact: 'Fast integer is the stable default. Smart auto uses preflight analysis. Noisy pixel handles JPEG artifacts. AI grid hypothesis targets rough generated pixel art.',
+		example: 'Use Fast integer for clean PNG upscales; use Smart auto or Noisy pixel for JPEG; choose AI grid hypothesis when generated pixel art keeps its large size.'
 	},
 	{
 		id: 'algorithm-auto-help',
@@ -37,11 +37,11 @@ const helpItems: HelpText[] = [
 		example: 'Use it for a JPEG pixel-art image with speckled colors around edges.'
 	},
 	{
-		id: 'algorithm-ai-help',
-		label: 'AI pixel v2',
-		description: 'Explicit pipeline for rough AI pixel art with fractional grid recovery, clustering, and artifact cleanup.',
-		impact: 'More aggressive than Smart auto and intended for images with AI-style irregularities.',
-		example: 'Use it when pixels are uneven, colors drift between tiles, or artifacts remain after Noisy pixel.'
+		id: 'algorithm-ai-grid-help',
+		label: 'AI grid hypothesis',
+		description: 'Scores candidate pixel grid sizes using reconstruction error, palette compactness, edge alignment, and scale priors for rough AI pixel art.',
+		impact: 'Better when the generated image has no clean source scale, but slower because it ranks multiple grid hypotheses.',
+		example: 'Use it when generated pixel art keeps the image too large or when pixel boundaries are uncertain.'
 	},
 	{
 		id: 'scale-mode-help',
@@ -95,9 +95,9 @@ const helpItems: HelpText[] = [
 	{
 		id: 'noisy-bucket-help',
 		label: 'Color bucket size',
-		description: 'Controls how broadly noisy-pixel-v1 groups similar colors inside each restored pixel block.',
-		impact: 'Smaller buckets preserve detail; larger buckets tolerate stronger JPEG/AI color noise.',
-		example: 'Use 12-16 for JPEG, 20-28 for rough AI-generated pixel art.'
+		description: 'Controls how broadly Noisy pixel and AI grid hypothesis group similar colors inside each restored pixel block.',
+		impact: 'Smaller buckets preserve detail; larger buckets tolerate stronger JPEG or AI color noise during clustered reconstruction.',
+		example: 'Use 12-16 for JPEG in Noisy pixel; use 20-28 for rough AI-generated pixel art in AI grid hypothesis.'
 	},
 	{
 		id: 'original-size-help',

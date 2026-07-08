@@ -272,14 +272,14 @@ class CoreRestoreTests(unittest.TestCase):
             )
 
     @pytest.mark.regression
-    def test_auto_selects_ai_pixel_v2_for_ai_fixture(self) -> None:
+    def test_auto_selects_ai_grid_hypothesis_for_ai_fixture(self) -> None:
         image = Image.open(ROOT / "tests" / "fixtures" / "test-ai-2.png")
         image.thumbnail((256, 256))
 
         result = process_image(image, RestoreSettings(algorithm="auto", scale_mode="auto", min_scale=1, max_scale=16))
 
-        self.assertEqual("ai-pixel-v2", result.algorithm_used)
-        self.assertEqual("ai-pixel-v2", result.analysis["recommended_algorithm"])
+        self.assertEqual("ai-grid-hypothesis-v1", result.algorithm_used)
+        self.assertEqual("ai-grid-hypothesis-v1", result.analysis["recommended_algorithm"])
         self.assertGreaterEqual(result.analysis["ai_pixel_v2_score"], 0.70)
 
     def _make_synthetic_pixel_art(self) -> np.ndarray:
