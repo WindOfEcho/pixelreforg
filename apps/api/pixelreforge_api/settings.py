@@ -46,6 +46,14 @@ class ApiSettings:
     session_secret: str = DEVELOPMENT_SESSION_SECRET
     session_cookie_name: str = DEFAULT_SESSION_COOKIE_NAME
     session_max_age_seconds: int = DEFAULT_SESSION_MAX_AGE_SECONDS
+    sprite_sheet_max_files: int = 128
+    sprite_sheet_max_frames: int = 4096
+    sprite_sheet_max_file_bytes: int = 16 * 1024 * 1024
+    sprite_sheet_max_total_bytes: int = 64 * 1024 * 1024
+    sprite_sheet_max_pixels: int = 8_000_000
+    sprite_sheet_max_total_pixels: int = 8_000_000
+    sprite_sheet_max_atlas_pixels: int = 16_000_000
+    sprite_sheet_max_request_bytes: int = 70 * 1024 * 1024
 
     @property
     def is_production(self) -> bool:
@@ -94,6 +102,14 @@ def load_settings() -> ApiSettings:
             default=DEFAULT_SESSION_MAX_AGE_SECONDS,
             minimum=60,
         ),
+        sprite_sheet_max_files=_read_int("PIXELREFORGE_SPRITE_SHEET_MAX_FILES", default=128, minimum=1),
+        sprite_sheet_max_frames=_read_int("PIXELREFORGE_SPRITE_SHEET_MAX_FRAMES", default=4096, minimum=1),
+        sprite_sheet_max_file_bytes=_read_int("PIXELREFORGE_SPRITE_SHEET_MAX_FILE_BYTES", default=16 * 1024 * 1024, minimum=1),
+        sprite_sheet_max_total_bytes=_read_int("PIXELREFORGE_SPRITE_SHEET_MAX_TOTAL_BYTES", default=64 * 1024 * 1024, minimum=1),
+        sprite_sheet_max_pixels=_read_int("PIXELREFORGE_SPRITE_SHEET_MAX_PIXELS", default=8_000_000, minimum=1),
+        sprite_sheet_max_total_pixels=_read_int("PIXELREFORGE_SPRITE_SHEET_MAX_TOTAL_PIXELS", default=8_000_000, minimum=1),
+        sprite_sheet_max_atlas_pixels=_read_int("PIXELREFORGE_SPRITE_SHEET_MAX_ATLAS_PIXELS", default=16_000_000, minimum=1),
+        sprite_sheet_max_request_bytes=_read_int("PIXELREFORGE_SPRITE_SHEET_MAX_REQUEST_BYTES", default=70 * 1024 * 1024, minimum=1),
     )
 
 

@@ -16,6 +16,8 @@ from .settings import ApiSettings
 logger = logging.getLogger(__name__)
 TERMINAL_STATUSES = {"completed", "failed", "cancelled"}
 JSON_FIELDS = {
+    "input_filenames",
+    "input_paths",
     "source_size",
     "target_size",
     "original_size_override",
@@ -28,12 +30,15 @@ JSON_FIELDS = {
 COLUMNS = [
     "job_id",
     "owner_id",
+    "job_type",
     "status",
     "progress_percent",
     "stage",
     "stage_message",
     "input_filename",
     "input_path",
+    "input_filenames",
+    "input_paths",
     "output_path",
     "algorithm_requested",
     "algorithm_used",
@@ -244,12 +249,15 @@ class SQLiteJobStore:
                 CREATE TABLE IF NOT EXISTS jobs (
                     job_id TEXT PRIMARY KEY,
                     owner_id TEXT,
+                    job_type TEXT NOT NULL DEFAULT 'restore',
                     status TEXT NOT NULL,
                     progress_percent REAL NOT NULL,
                     stage TEXT,
                     stage_message TEXT,
                     input_filename TEXT NOT NULL,
                     input_path TEXT NOT NULL,
+                    input_filenames TEXT NOT NULL DEFAULT '[]',
+                    input_paths TEXT NOT NULL DEFAULT '[]',
                     output_path TEXT,
                     algorithm_requested TEXT,
                     algorithm_used TEXT,
@@ -281,6 +289,14 @@ class SQLiteJobStore:
                 )
                 """
             )
+            existing_columns = {row["name"] for row in connection.execute("PRAGMA table_info(jobs)").fetchall()}
+            for name, definition in (
+                ("job_type", "TEXT NOT NULL DEFAULT 'restore'"),
+                ("input_filenames", "TEXT NOT NULL DEFAULT '[]'"),
+                ("input_paths", "TEXT NOT NULL DEFAULT '[]'"),
+            ):
+                if name not in existing_columns:
+                    connection.execute(f"ALTER TABLE jobs ADD COLUMN {name} {definition}")
             connection.execute("CREATE INDEX IF NOT EXISTS idx_jobs_status_created ON jobs(status, created_at)")
             connection.execute("CREATE INDEX IF NOT EXISTS idx_jobs_owner_created ON jobs(owner_id, created_at)")
             connection.execute("CREATE INDEX IF NOT EXISTS idx_jobs_expires_at ON jobs(expires_at)")
@@ -334,21 +350,23 @@ def _row_to_metadata(row: sqlite3.Row) -> JobMetadata:
     data = dict(row)
     for field in JSON_FIELDS:
         value = data[field]
-        data[field] = json.loads(value) if value else ([] if field == "warnings" else {} if field == "params" else None)
+        data[field] = json.loads(value) if value else ([] if field in {"warnings", "input_filenames", "input_paths"} else {} if field == "params" else None)
     data["cancel_requested"] = bool(data["cancel_requested"])
     return JobMetadata.model_validate(data)
 
 
 def _reset_processing_job(metadata: JobMetadata, now: datetime, reason: str) -> JobMetadata:
+    cancelled_message = "Sprite-sheet creation cancelled." if metadata.job_type == "sprite_sheet" else "Restoration cancelled."
+    failed_message = "Sprite-sheet creation failed." if metadata.job_type == "sprite_sheet" else "Restoration failed."
     if metadata.cancel_requested or metadata.status == "cancelled":
         metadata.status = "cancelled"
         metadata.stage = "cancelled"
-        metadata.stage_message = "Restoration cancelled."
+        metadata.stage_message = cancelled_message
         metadata.error = None
     elif metadata.attempts >= metadata.max_attempts:
         metadata.status = "failed"
         metadata.stage = "failed"
-        metadata.stage_message = "Restoration failed."
+        metadata.stage_message = failed_message
         metadata.error = reason
     else:
         metadata.status = "queued"

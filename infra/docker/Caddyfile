@@ -2,6 +2,13 @@
 	encode zstd gzip
 
 	@api path /api/* /health
+	@spritesheet_upload {
+		path /api/sprite-sheets /api/sprite-sheets/
+		method POST
+	}
+	request_body @spritesheet_upload {
+		max_size {$PIXELREFORGE_SPRITE_SHEET_MAX_REQUEST_SIZE:70MiB}
+	}
 	reverse_proxy @api api:8000
 
 	reverse_proxy web:3000

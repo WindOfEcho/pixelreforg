@@ -1,4 +1,5 @@
 export type JobStatus = 'queued' | 'processing' | 'completed' | 'failed' | 'cancelled';
+export type JobType = 'restore' | 'sprite_sheet';
 export type ScaleMode = 'auto' | 'manual';
 export type RestoreAlgorithm = 'auto' | 'integer-grid-v1' | 'resampled-grid-v2' | 'noisy-pixel-v1' | 'ai-pixel-v2' | 'ai-grid-hypothesis-v1';
 export type PaletteCleanupMode = 'off' | 'light' | 'medium' | 'strong' | 'custom';
@@ -19,6 +20,40 @@ export type RestoreSettings = {
 	fractionalScaleStep: number;
 };
 
+export type SpriteSheetInputMode = 'files' | 'sheet';
+export type SpriteSheetPackingMode = 'compact' | 'grid';
+export type SpriteSheetSortMode = 'input' | 'name' | 'width' | 'height' | 'area';
+export type SheetExtractionMode = 'auto' | 'grid';
+
+export type SpriteSheetSettings = {
+	packingMode: SpriteSheetPackingMode;
+	trimTransparent: boolean;
+	alphaThreshold: number;
+	padding: number;
+	borderPadding: number;
+	extrude: number;
+	maxWidth: number;
+	maxHeight: number;
+	atlasWidth?: number;
+	atlasHeight?: number;
+	powerOfTwo: boolean;
+	forceSquare: boolean;
+	allowRotation: boolean;
+	sortMode: SpriteSheetSortMode;
+	gridColumns?: number;
+	backgroundColor: string | null;
+	includeMetadata: boolean;
+	extractionMode: SheetExtractionMode;
+	cellWidth?: number;
+	cellHeight?: number;
+	columns?: number;
+	rows?: number;
+	offsetX: number;
+	offsetY: number;
+	gapX: number;
+	gapY: number;
+};
+
 export type JobCreateResponse = {
 	job_id: string;
 	status: JobStatus;
@@ -28,11 +63,13 @@ export type JobCreateResponse = {
 
 export type JobMetadata = {
 	job_id: string;
+	job_type: JobType;
 	status: JobStatus;
 	progress_percent: number;
 	stage: string | null;
 	stage_message: string | null;
 	input_filename: string;
+	input_filenames: string[];
 	algorithm_requested: string | null;
 	algorithm_used: string | null;
 	algorithm_version: string | null;

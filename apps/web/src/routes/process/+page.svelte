@@ -237,6 +237,7 @@
 	<section class="mx-auto mb-7 flex max-w-6xl flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
 		<div>
 			<a class="readable-copy text-sm text-[var(--color-text-muted)] hover:text-[var(--color-accent-strong)]" href="/">← Back to landing</a>
+			<a class="readable-copy ml-4 text-sm text-[var(--color-text-muted)] hover:text-[var(--color-accent-strong)]" href="/spritesheet">Build a sprite atlas →</a>
 			<p class="mt-4 text-lg uppercase tracking-[0.24em] text-[var(--color-accent)]">PixelReForge MVP</p>
 			<h1 class="mt-2 max-w-4xl text-5xl leading-[1.02] sm:text-7xl">Restore pixel art to its original form.</h1>
 		</div>

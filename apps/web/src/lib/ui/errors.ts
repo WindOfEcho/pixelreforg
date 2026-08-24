@@ -24,14 +24,15 @@ export function userErrorMessage(error: unknown, context: ErrorContext): string 
 	}
 
 	if (error instanceof ApiError) {
-		if (error.status === 400 || error.status === 415) return 'The selected image cannot be processed. Try PNG, JPEG, GIF, or WebP.';
-		if (error.status === 404) return 'This processing job is no longer available. Upload the image again.';
-		if (error.status >= 500) return 'The processing service failed. Please try again in a moment.';
+		if (error.status === 400 || error.status === 415) return isSpriteSheetAction(context.action) ? 'The selected sprites cannot be processed. Try PNG, JPEG, GIF, or WebP.' : 'The selected image cannot be processed. Try PNG, JPEG, GIF, or WebP.';
+		if (error.status === 404) return isSpriteSheetAction(context.action) ? 'This sprite-sheet job is no longer available. Upload the sprites again.' : 'This processing job is no longer available. Upload the image again.';
+		if (error.status >= 500) return isSpriteSheetAction(context.action) ? 'The sprite-sheet service failed. Please try again in a moment.' : 'The processing service failed. Please try again in a moment.';
 	}
 
-	return context.action === 'cancel'
-		? 'Could not cancel the current restoration. Please try again.'
-		: 'Restoration failed. Check the image format and try again.';
+	if (isSpriteSheetAction(context.action)) {
+		return context.action.startsWith('cancel') ? 'Could not cancel the current atlas job. Please try again.' : 'Sprite-sheet creation failed. Check the image inputs and settings, then try again.';
+	}
+	return context.action === 'cancel' ? 'Could not cancel the current restoration. Please try again.' : 'Restoration failed. Check the image format and try again.';
 }
 
 export function logUiError(error: unknown, context: ErrorContext) {
@@ -54,4 +55,8 @@ function debugMessage(error: unknown, context: ErrorContext): string {
 	if (error instanceof ApiError) parts.push(`status=${error.status}`, `endpoint=${error.endpoint}`);
 
 	return parts.join(' | ');
+}
+
+function isSpriteSheetAction(action: string): boolean {
+	return action.includes('atlas');
 }

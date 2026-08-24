@@ -29,6 +29,9 @@
 					class={buttonClass('primary', 'lg', 'mt-4 w-full')} href="/process">
 					Start restoring
 				</a>
+				<a class={buttonClass('secondary', 'lg', 'mt-4 w-full')} href="/spritesheet">
+					Build a sprite atlas
+				</a>
 				<a class={buttonClass('primary', 'lg', 'mt-4 w-full')}	href="#how-it-works">
 					How it works
 				</a>
