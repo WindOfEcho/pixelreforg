@@ -49,7 +49,9 @@ def run_worker_until_idle(worker: JobWorker, max_runs: int = 10) -> int:
     return runs
 
 
-def create_job_without_processing(client: TestClient, fixture_name: str = "zephyr-small-test-x2.png") -> str:
+def create_job_without_processing(
+    client: TestClient, fixture_name: str = "zephyr-small-test-x2.png"
+) -> str:
     fixture_path = ROOT / "tests" / "fixtures" / fixture_name
     with fixture_path.open("rb") as image_file:
         response = client.post(
@@ -75,7 +77,9 @@ def test_request_id_header_is_preserved(client: TestClient) -> None:
     assert response.headers["x-request-id"] == "test-request-id"
 
 
-def test_production_request_logging_records_successful_requests(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+def test_production_request_logging_records_successful_requests(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
     monkeypatch.setenv("PIXELREFORGE_ENV", "production")
     monkeypatch.setenv("PIXELREFORGE_LOG_FORMAT", "json")
     monkeypatch.setenv("PIXELREFORGE_LOG_LEVEL", "INFO")
@@ -83,17 +87,25 @@ def test_production_request_logging_records_successful_requests(monkeypatch: pyt
     production_app = create_app()
     production_client = TestClient(production_app)
 
-    response = production_client.get("/health", headers={"X-Request-ID": "prod-request-id"})
+    response = production_client.get(
+        "/health", headers={"X-Request-ID": "prod-request-id"}
+    )
 
     assert response.status_code == 200
-    log_lines = [json.loads(line) for line in capsys.readouterr().out.splitlines() if line.startswith("{")]
+    log_lines = [
+        json.loads(line)
+        for line in capsys.readouterr().out.splitlines()
+        if line.startswith("{")
+    ]
     finished = [record for record in log_lines if record["event"] == "request_finished"]
     assert len(finished) == 1
     assert finished[0]["request_id"] == "prod-request-id"
     assert finished[0]["status_code"] == 200
 
 
-def test_settings_read_runtime_mode_from_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_settings_read_runtime_mode_from_environment(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setenv("PIXELREFORGE_ENV", "production")
     monkeypatch.setenv("PIXELREFORGE_DEBUG", "true")
     monkeypatch.setenv("PIXELREFORGE_LOG_FORMAT", "json")
@@ -114,7 +126,9 @@ def test_settings_read_runtime_mode_from_environment(monkeypatch: pytest.MonkeyP
     assert settings.cors_origins == ("https://example.com",)
 
 
-def test_production_settings_require_session_secret(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_production_settings_require_session_secret(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setenv("PIXELREFORGE_ENV", "production")
     monkeypatch.delenv("PIXELREFORGE_SESSION_SECRET", raising=False)
 
@@ -138,7 +152,9 @@ def test_sentry_is_disabled_without_dsn(caplog: pytest.LogCaptureFixture) -> Non
     assert any(record.event == "sentry_disabled" for record in caplog.records)
 
 
-def test_sentry_is_configured_with_dsn(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
+def test_sentry_is_configured_with_dsn(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
     init_call: dict = {}
     sentry_module = types.ModuleType("sentry_sdk")
 
@@ -183,7 +199,9 @@ def test_sentry_is_configured_with_dsn(monkeypatch: pytest.MonkeyPatch, caplog: 
 
 
 @pytest.mark.regression
-def test_create_job_processes_fixture_and_downloads_result(client: TestClient, worker: JobWorker) -> None:
+def test_create_job_processes_fixture_and_downloads_result(
+    client: TestClient, worker: JobWorker
+) -> None:
     fixture_path = ROOT / "tests" / "fixtures" / "test-jpegs-x4-90.jpg"
 
     with fixture_path.open("rb") as image_file:
@@ -227,7 +245,9 @@ def test_create_job_processes_fixture_and_downloads_result(client: TestClient, w
 
 
 @pytest.mark.regression
-def test_auto_algorithm_records_recommendation_and_fallback(client: TestClient, worker: JobWorker) -> None:
+def test_auto_algorithm_records_recommendation_and_fallback(
+    client: TestClient, worker: JobWorker
+) -> None:
     fixture_path = ROOT / "tests" / "fixtures" / "test-jpegs-x4-60.jpg"
 
     with fixture_path.open("rb") as image_file:
@@ -251,7 +271,9 @@ def test_auto_algorithm_records_recommendation_and_fallback(client: TestClient, 
 
 
 @pytest.mark.regression
-def test_explicit_noisy_pixel_algorithm_processes_fixture(client: TestClient, worker: JobWorker) -> None:
+def test_explicit_noisy_pixel_algorithm_processes_fixture(
+    client: TestClient, worker: JobWorker
+) -> None:
     fixture_path = ROOT / "tests" / "fixtures" / "test-jpegs-x10-60.jpg"
 
     with fixture_path.open("rb") as image_file:
@@ -271,7 +293,9 @@ def test_explicit_noisy_pixel_algorithm_processes_fixture(client: TestClient, wo
     assert metadata["palette"]["cleanup_applied"] is True
 
 
-def test_explicit_ai_grid_hypothesis_algorithm_processes_tiny_fixture(client: TestClient, worker: JobWorker) -> None:
+def test_explicit_ai_grid_hypothesis_algorithm_processes_tiny_fixture(
+    client: TestClient, worker: JobWorker
+) -> None:
     fixture_path = ROOT / "tests" / "fixtures" / "zephyr-small-test-x2.png"
 
     with fixture_path.open("rb") as image_file:
@@ -288,12 +312,17 @@ def test_explicit_ai_grid_hypothesis_algorithm_processes_tiny_fixture(client: Te
     assert metadata["status"] == "completed"
     assert metadata["algorithm_requested"] == "ai-grid-hypothesis-v1"
     assert metadata["algorithm_used"] == "ai-grid-hypothesis-v1"
-    assert metadata["reconstruction"]["resize_method"] == "ai-grid-hypothesis-v1-resampled-cluster"
+    assert (
+        metadata["reconstruction"]["resize_method"]
+        == "ai-grid-hypothesis-v1-resampled-cluster"
+    )
     assert metadata["target_size"][0] < metadata["source_size"][0]
 
 
 @pytest.mark.performance
-def test_explicit_ai_pixel_v2_algorithm_processes_fixture(client: TestClient, worker: JobWorker) -> None:
+def test_explicit_ai_pixel_v2_algorithm_processes_fixture(
+    client: TestClient, worker: JobWorker
+) -> None:
     fixture_path = ROOT / "tests" / "fixtures" / "test-ai-2.png"
 
     with fixture_path.open("rb") as image_file:
@@ -310,8 +339,12 @@ def test_explicit_ai_pixel_v2_algorithm_processes_fixture(client: TestClient, wo
     assert metadata["status"] == "completed"
     assert metadata["algorithm_requested"] == "ai-pixel-v2"
     assert metadata["algorithm_used"] == "ai-pixel-v2"
-    assert metadata["reconstruction"]["resize_method"] == "ai-pixel-v2-resampled-cluster"
-    assert metadata["reconstruction"]["artifact_cleanup"] == "isolated-pixel-neighborhood"
+    assert (
+        metadata["reconstruction"]["resize_method"] == "ai-pixel-v2-resampled-cluster"
+    )
+    assert (
+        metadata["reconstruction"]["artifact_cleanup"] == "isolated-pixel-neighborhood"
+    )
 
 
 @pytest.mark.regression
@@ -326,7 +359,9 @@ def test_processing_failure_retries_until_max_attempts(
     def fail_processing(*args, **kwargs):  # type: ignore[no-untyped-def]
         raise RuntimeError("forced failure")
 
-    monkeypatch.setattr("pixelreforge_api.processing.process_image_file", fail_processing)
+    monkeypatch.setattr(
+        "pixelreforge_api.processing.process_image_file", fail_processing
+    )
     caplog.set_level("ERROR", logger="pixelreforge_api.processing")
     with fixture_path.open("rb") as image_file:
         create_response = client.post(
@@ -343,7 +378,9 @@ def test_processing_failure_retries_until_max_attempts(
     assert metadata["attempts"] == 3
     assert metadata["max_attempts"] == 3
     assert metadata["last_error"] == "forced failure"
-    failed = [record for record in caplog.records if record.event == "job_processing_failed"]
+    failed = [
+        record for record in caplog.records if record.event == "job_processing_failed"
+    ]
     assert len(failed) == 3
     assert all(record.job_id == job_id for record in failed)
     assert all(record.error_type == "RuntimeError" for record in failed)
@@ -359,7 +396,9 @@ def test_validation_failure_is_not_retried(
     def fail_validation(*args, **kwargs):  # type: ignore[no-untyped-def]
         raise ValueError("invalid input image")
 
-    monkeypatch.setattr("pixelreforge_api.processing.process_image_file", fail_validation)
+    monkeypatch.setattr(
+        "pixelreforge_api.processing.process_image_file", fail_validation
+    )
     with fixture_path.open("rb") as image_file:
         create_response = client.post(
             "/api/jobs?scale=4",
@@ -383,14 +422,21 @@ def test_missing_job_returns_not_found(client: TestClient) -> None:
     assert response.status_code == 404
 
 
-def test_same_anonymous_session_keeps_access_after_client_reload(api_settings: ApiSettings, job_store: SQLiteJobStore) -> None:
+def test_same_anonymous_session_keeps_access_after_client_reload(
+    api_settings: ApiSettings, job_store: SQLiteJobStore
+) -> None:
     app = create_app(settings=api_settings, job_store=job_store)
     first_client = TestClient(app)
     reloaded_client = TestClient(app)
     job_id = create_job_without_processing(first_client)
     session_cookie = first_client.cookies.get(api_settings.session_cookie_name)
     assert session_cookie is not None
-    reloaded_client.cookies.set(api_settings.session_cookie_name, session_cookie, domain="testserver.local", path="/")
+    reloaded_client.cookies.set(
+        api_settings.session_cookie_name,
+        session_cookie,
+        domain="testserver.local",
+        path="/",
+    )
 
     response = reloaded_client.get(f"/api/jobs/{job_id}")
 
@@ -398,7 +444,9 @@ def test_same_anonymous_session_keeps_access_after_client_reload(api_settings: A
     assert response.json()["job_id"] == job_id
 
 
-def test_anonymous_sessions_isolate_job_status_list_download_and_cancel(api_settings: ApiSettings, job_store: SQLiteJobStore) -> None:
+def test_anonymous_sessions_isolate_job_status_list_download_and_cancel(
+    api_settings: ApiSettings, job_store: SQLiteJobStore
+) -> None:
     app = create_app(settings=api_settings, job_store=job_store)
     owner_client = TestClient(app)
     other_client = TestClient(app)
@@ -435,14 +483,21 @@ def test_invalid_anonymous_session_cookie_starts_new_session_without_old_access(
     app = create_app(settings=api_settings, job_store=job_store)
     owner_client = TestClient(app)
     invalid_client = TestClient(app)
-    invalid_client.cookies.set(api_settings.session_cookie_name, "invalid-token", domain="testserver.local", path="/")
+    invalid_client.cookies.set(
+        api_settings.session_cookie_name,
+        "invalid-token",
+        domain="testserver.local",
+        path="/",
+    )
     job_id = create_job_without_processing(owner_client)
     owner_cookie = owner_client.cookies.get(api_settings.session_cookie_name)
 
     response = invalid_client.get(f"/api/jobs/{job_id}")
 
     assert response.status_code == 404
-    invalid_cookie = invalid_client.cookies.get(api_settings.session_cookie_name, domain="testserver.local", path="/")
+    invalid_cookie = invalid_client.cookies.get(
+        api_settings.session_cookie_name, domain="testserver.local", path="/"
+    )
     assert invalid_cookie is not None
     assert invalid_cookie != owner_cookie
 
@@ -471,7 +526,9 @@ def test_list_jobs_returns_recent_queued_jobs(client: TestClient) -> None:
     assert first_response.json()["job_id"] in job_ids
 
 
-def test_worker_recovery_requeues_interrupted_processing_job(worker: JobWorker, job_store: SQLiteJobStore) -> None:
+def test_worker_recovery_requeues_interrupted_processing_job(
+    worker: JobWorker, job_store: SQLiteJobStore
+) -> None:
     job_id = "interrupted-processing-job"
     job_dir = get_job_dir(job_id)
     job_dir.mkdir(parents=True, exist_ok=True)
@@ -506,7 +563,9 @@ def test_worker_recovery_requeues_interrupted_processing_job(worker: JobWorker, 
     assert metadata.last_error == "Worker was interrupted."
 
 
-def test_cancel_endpoint_marks_active_job_and_blocks_download(client: TestClient, job_store: SQLiteJobStore) -> None:
+def test_cancel_endpoint_marks_active_job_and_blocks_download(
+    client: TestClient, job_store: SQLiteJobStore
+) -> None:
     job_id = create_job_without_processing(client)
 
     def mark_processing(metadata: JobMetadata) -> JobMetadata:
@@ -567,7 +626,9 @@ def test_process_job_records_progress_and_preserves_cancelled_status(
 
         raise ProcessingCancelled("cancelled")
 
-    monkeypatch.setattr("pixelreforge_api.processing.process_image_file", cancel_during_processing)
+    monkeypatch.setattr(
+        "pixelreforge_api.processing.process_image_file", cancel_during_processing
+    )
 
     assert worker.run_once() is True
 

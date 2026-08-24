@@ -32,7 +32,9 @@ def restore_palette(
         raise ValueError(f"Unsupported palette cleanup mode: {cleanup_mode}")
 
     image_array = np.asarray(image)
-    analysis_array = _analysis_sample(image_array) if cleanup_mode == "off" else image_array
+    analysis_array = (
+        _analysis_sample(image_array) if cleanup_mode == "off" else image_array
+    )
     before_colors, before_counts = _unique_colors(analysis_array)
     before_count = int(before_colors.shape[0])
     resolved_distance = _resolve_merge_distance(cleanup_mode, merge_distance)
@@ -51,7 +53,9 @@ def restore_palette(
     if cleanup_mode == "off" or before_count <= 1:
         return PaletteResult(image=image, metadata=metadata)
 
-    cleaned = _merge_similar_colors(image_array, before_colors, before_counts, resolved_distance)
+    cleaned = _merge_similar_colors(
+        image_array, before_colors, before_counts, resolved_distance
+    )
     if resolved_target_colors is not None and resolved_target_colors > 0:
         cleaned = _limit_palette_colors(cleaned, resolved_target_colors)
     after_colors, after_counts = _unique_colors(cleaned)
@@ -108,7 +112,9 @@ def _merge_similar_colors(
     return cleaned.reshape(image_array.shape)
 
 
-def _nearest_representative(color: np.ndarray, representatives: list[np.ndarray], max_distance: float) -> np.ndarray | None:
+def _nearest_representative(
+    color: np.ndarray, representatives: list[np.ndarray], max_distance: float
+) -> np.ndarray | None:
     best: np.ndarray | None = None
     best_distance = max_distance
     for representative in representatives:
@@ -129,13 +135,17 @@ def _limit_palette_colors(image_array: np.ndarray, target_colors: int) -> np.nda
     flat = image_array.reshape(-1, image_array.shape[2])
     limited = np.empty_like(flat)
     for index, pixel in enumerate(flat):
-        distances = np.array([_color_distance(pixel, color) for color in palette], dtype=np.float64)
+        distances = np.array(
+            [_color_distance(pixel, color) for color in palette], dtype=np.float64
+        )
         limited[index] = palette[int(np.argmin(distances))]
     return limited.reshape(image_array.shape)
 
 
 def _color_distance(left: np.ndarray, right: np.ndarray) -> float:
-    rgb_distance = float(np.linalg.norm(left[:3].astype(np.int16) - right[:3].astype(np.int16)))
+    rgb_distance = float(
+        np.linalg.norm(left[:3].astype(np.int16) - right[:3].astype(np.int16))
+    )
     if left.shape[0] == 4:
         alpha_distance = abs(int(left[3]) - int(right[3])) * 2.0
         return rgb_distance + alpha_distance
@@ -148,7 +158,9 @@ def _unique_colors(image_array: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     return colors.astype(np.uint8, copy=False), counts.astype(np.int64, copy=False)
 
 
-def _top_colors(colors: np.ndarray, counts: np.ndarray, limit: int = 16) -> list[dict[str, object]]:
+def _top_colors(
+    colors: np.ndarray, counts: np.ndarray, limit: int = 16
+) -> list[dict[str, object]]:
     total = max(1, int(counts.sum()))
     top_indexes = np.argsort(-counts)[:limit]
     return [
@@ -163,5 +175,7 @@ def _top_colors(colors: np.ndarray, counts: np.ndarray, limit: int = 16) -> list
 
 def _hex_color(color: np.ndarray) -> str:
     if color.shape[0] == 4:
-        return "#{:02x}{:02x}{:02x}{:02x}".format(int(color[0]), int(color[1]), int(color[2]), int(color[3]))
+        return "#{:02x}{:02x}{:02x}{:02x}".format(
+            int(color[0]), int(color[1]), int(color[2]), int(color[3])
+        )
     return "#{:02x}{:02x}{:02x}".format(int(color[0]), int(color[1]), int(color[2]))

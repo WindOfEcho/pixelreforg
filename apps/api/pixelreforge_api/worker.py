@@ -29,12 +29,20 @@ class JobWorker:
         self.stop_requested.set()
 
     def recover(self) -> None:
-        interrupted = self.store.recover_interrupted_jobs(worker_id=self.settings.worker_id)
-        stale = self.store.requeue_stale_jobs(timeout_seconds=self.settings.job_timeout_seconds)
+        interrupted = self.store.recover_interrupted_jobs(
+            worker_id=self.settings.worker_id
+        )
+        stale = self.store.requeue_stale_jobs(
+            timeout_seconds=self.settings.job_timeout_seconds
+        )
         if interrupted or stale:
             logger.info(
                 "Worker recovered jobs.",
-                extra={"event": "worker_jobs_recovered", "interrupted_count": interrupted, "stale_count": stale},
+                extra={
+                    "event": "worker_jobs_recovered",
+                    "interrupted_count": interrupted,
+                    "stale_count": stale,
+                },
             )
 
     def run_once(self) -> bool:
@@ -60,18 +68,27 @@ class JobWorker:
         futures: dict[Future[None], str] = {}
         last_cleanup = 0.0
         last_stale_recovery = 0.0
-        with ThreadPoolExecutor(max_workers=self.settings.worker_concurrency) as executor:
+        with ThreadPoolExecutor(
+            max_workers=self.settings.worker_concurrency
+        ) as executor:
             while not self.stop_requested.is_set():
                 for future in [future for future in futures if future.done()]:
                     job_id = futures.pop(future)
                     try:
                         future.result()
                     except Exception:
-                        logger.exception("Worker job crashed.", extra={"event": "worker_job_crashed", "job_id": job_id})
+                        logger.exception(
+                            "Worker job crashed.",
+                            extra={"event": "worker_job_crashed", "job_id": job_id},
+                        )
 
                 now = time.monotonic()
-                if now - last_stale_recovery >= min(60.0, float(self.settings.job_timeout_seconds)):
-                    self.store.requeue_stale_jobs(timeout_seconds=self.settings.job_timeout_seconds)
+                if now - last_stale_recovery >= min(
+                    60.0, float(self.settings.job_timeout_seconds)
+                ):
+                    self.store.requeue_stale_jobs(
+                        timeout_seconds=self.settings.job_timeout_seconds
+                    )
                     last_stale_recovery = now
                 if now - last_cleanup >= 60.0:
                     self.cleanup_expired_jobs()
@@ -79,28 +96,42 @@ class JobWorker:
 
                 claimed = False
                 while len(futures) < self.settings.worker_concurrency:
-                    metadata = self.store.claim_next_queued_job(worker_id=self.settings.worker_id)
+                    metadata = self.store.claim_next_queued_job(
+                        worker_id=self.settings.worker_id
+                    )
                     if metadata is None:
                         break
-                    futures[executor.submit(self._run_job, metadata.job_id)] = metadata.job_id
+                    futures[executor.submit(self._run_job, metadata.job_id)] = (
+                        metadata.job_id
+                    )
                     claimed = True
 
                 if not claimed and not futures:
                     self.stop_requested.wait(self.settings.worker_poll_interval_seconds)
                 elif not claimed:
-                    self.stop_requested.wait(min(0.5, self.settings.worker_poll_interval_seconds))
+                    self.stop_requested.wait(
+                        min(0.5, self.settings.worker_poll_interval_seconds)
+                    )
 
-        logger.info("Worker stopped.", extra={"event": "worker_stopped", "worker_id": self.settings.worker_id})
+        logger.info(
+            "Worker stopped.",
+            extra={"event": "worker_stopped", "worker_id": self.settings.worker_id},
+        )
 
     def cleanup_expired_jobs(self) -> None:
         for metadata in self.store.find_expired_terminal_jobs(limit=100):
             delete_job_files(metadata.job_id)
             self.store.delete_job(metadata.job_id)
-            logger.info("Expired job deleted.", extra={"event": "job_expired_deleted", "job_id": metadata.job_id})
+            logger.info(
+                "Expired job deleted.",
+                extra={"event": "job_expired_deleted", "job_id": metadata.job_id},
+            )
 
     def _run_job(self, job_id: str) -> None:
         stop_heartbeat = Event()
-        heartbeat_thread = Thread(target=self._heartbeat_loop, args=(job_id, stop_heartbeat), daemon=True)
+        heartbeat_thread = Thread(
+            target=self._heartbeat_loop, args=(job_id, stop_heartbeat), daemon=True
+        )
         heartbeat_thread.start()
         try:
             process_job(job_id, self.store)

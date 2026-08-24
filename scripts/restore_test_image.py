@@ -15,7 +15,9 @@ def main() -> None:
     # The current real fixture is a JPEG with strong compression noise, so the
     # first visual smoke run uses an explicit scale while auto-detection remains
     # covered by synthetic tests.
-    result = process_image_file(INPUT_PATH, RestoreSettings(manual_scale_x=4, manual_scale_y=4))
+    result = process_image_file(
+        INPUT_PATH, RestoreSettings(manual_scale_x=4, manual_scale_y=4)
+    )
     save_image(result.image, OUTPUT_PATH)
 
     print(f"input: {INPUT_PATH}")

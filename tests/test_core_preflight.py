@@ -14,7 +14,12 @@ ROOT = Path(__file__).resolve().parents[1]
 class CorePreflightTests(unittest.TestCase):
     def test_clean_integer_png_recommends_integer_grid(self) -> None:
         image = Image.open(ROOT / "tests" / "fixtures" / "test-x4.png")
-        result = process_image(image, RestoreSettings(algorithm="auto", scale_mode="auto", min_scale=2, max_scale=16))
+        result = process_image(
+            image,
+            RestoreSettings(
+                algorithm="auto", scale_mode="auto", min_scale=2, max_scale=16
+            ),
+        )
 
         self.assertEqual("auto", result.algorithm_requested)
         self.assertEqual("integer-grid-v1", result.algorithm_used)
@@ -27,21 +32,37 @@ class CorePreflightTests(unittest.TestCase):
         for fixture_name in ("test-jpegs-x4-60.jpg", "test-jpegs-x10-60.jpg"):
             with self.subTest(fixture=fixture_name):
                 image = Image.open(ROOT / "tests" / "fixtures" / fixture_name)
-                result = process_image(image, RestoreSettings(algorithm="auto", scale_mode="auto", min_scale=2, max_scale=16))
+                result = process_image(
+                    image,
+                    RestoreSettings(
+                        algorithm="auto", scale_mode="auto", min_scale=2, max_scale=16
+                    ),
+                )
 
                 self.assertEqual("noisy-pixel-v1", result.algorithm_used)
                 self.assertIsNotNone(result.analysis)
-                self.assertEqual("noisy-pixel-v1", result.analysis["recommended_algorithm"])
+                self.assertEqual(
+                    "noisy-pixel-v1", result.analysis["recommended_algorithm"]
+                )
                 self.assertGreaterEqual(result.analysis["jpeg_artifact_score"], 0.55)
-                self.assertEqual("dominant-color-cluster", result.reconstruction["resize_method"])
+                self.assertEqual(
+                    "dominant-color-cluster", result.reconstruction["resize_method"]
+                )
 
     def test_explicit_noisy_pixel_algorithm_uses_cluster_resize(self) -> None:
         image = Image.open(ROOT / "tests" / "fixtures" / "test-jpegs-x4-60.jpg")
 
-        result = process_image(image, RestoreSettings(algorithm="noisy-pixel-v1", scale_mode="auto", min_scale=2, max_scale=16))
+        result = process_image(
+            image,
+            RestoreSettings(
+                algorithm="noisy-pixel-v1", scale_mode="auto", min_scale=2, max_scale=16
+            ),
+        )
 
         self.assertEqual("noisy-pixel-v1", result.algorithm_used)
-        self.assertEqual("dominant-color-cluster", result.reconstruction["resize_method"])
+        self.assertEqual(
+            "dominant-color-cluster", result.reconstruction["resize_method"]
+        )
         self.assertEqual((32, 32), result.target_size)
 
     @pytest.mark.regression
@@ -52,7 +73,12 @@ class CorePreflightTests(unittest.TestCase):
 
         result = process_image(
             image,
-            RestoreSettings(algorithm="noisy-pixel-v1", scale_mode="manual", manual_scale_x=2, manual_scale_y=2),
+            RestoreSettings(
+                algorithm="noisy-pixel-v1",
+                scale_mode="manual",
+                manual_scale_x=2,
+                manual_scale_y=2,
+            ),
         )
 
         self.assertEqual("noisy-pixel-v1", result.algorithm_used)
@@ -62,17 +88,30 @@ class CorePreflightTests(unittest.TestCase):
         for fixture_name in ("test-ai-1.png", "test-ai-2.png"):
             with self.subTest(fixture=fixture_name):
                 image = Image.open(ROOT / "tests" / "fixtures" / fixture_name)
-                analysis = analyze_image(np.asarray(image.convert("RGBA")), image.format, grid_confidence=0.1)
+                analysis = analyze_image(
+                    np.asarray(image.convert("RGBA")), image.format, grid_confidence=0.1
+                )
 
                 self.assertGreaterEqual(analysis.noise_score, 0.0)
                 self.assertGreaterEqual(analysis.ai_artifact_score, 0.0)
                 self.assertGreater(analysis.unique_color_count, 0)
-                self.assertIn(analysis.recommended_algorithm, ("integer-grid-v1", "noisy-pixel-v1", "ai-grid-hypothesis-v1"))
+                self.assertIn(
+                    analysis.recommended_algorithm,
+                    ("integer-grid-v1", "noisy-pixel-v1", "ai-grid-hypothesis-v1"),
+                )
                 self.assertGreaterEqual(analysis.ai_pixel_v2_score, 0.0)
 
     def test_palette_cleanup_setting_is_recorded_not_applied(self) -> None:
         image = Image.open(ROOT / "tests" / "fixtures" / "test-x4.png")
-        result = process_image(image, RestoreSettings(palette_cleanup="medium", scale_mode="manual", manual_scale_x=4, manual_scale_y=4))
+        result = process_image(
+            image,
+            RestoreSettings(
+                palette_cleanup="medium",
+                scale_mode="manual",
+                manual_scale_x=4,
+                manual_scale_y=4,
+            ),
+        )
 
         self.assertEqual("medium", result.palette_cleanup)
         self.assertEqual("medium", result.palette["cleanup_requested"])

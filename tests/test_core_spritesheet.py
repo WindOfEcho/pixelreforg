@@ -1,18 +1,37 @@
 from PIL import Image
 import pytest
 
-from pixelreforge_core import AtlasSizeError, ProcessingCancelled, SheetExtractionSettings, SpriteSheetError, SpriteSheetSettings, create_sprite_sheet, repack_sprite_sheet
+from pixelreforge_core import (
+    AtlasSizeError,
+    ProcessingCancelled,
+    SheetExtractionSettings,
+    SpriteSheetError,
+    SpriteSheetSettings,
+    create_sprite_sheet,
+    repack_sprite_sheet,
+)
 
 
-def solid_sprite(size: tuple[int, int], color: tuple[int, int, int, int]) -> Image.Image:
+def solid_sprite(
+    size: tuple[int, int], color: tuple[int, int, int, int]
+) -> Image.Image:
     return Image.new("RGBA", size, color)
 
 
 def test_grid_packing_preserves_pixels_and_metadata() -> None:
     result = create_sprite_sheet(
-        [solid_sprite((2, 2), (255, 0, 0, 255)), solid_sprite((1, 3), (0, 0, 255, 255))],
+        [
+            solid_sprite((2, 2), (255, 0, 0, 255)),
+            solid_sprite((1, 3), (0, 0, 255, 255)),
+        ],
         ["hero.png", "gem.png"],
-        SpriteSheetSettings(packing_mode="grid", trim_transparent=False, padding=1, border_padding=2, grid_columns=2),
+        SpriteSheetSettings(
+            packing_mode="grid",
+            trim_transparent=False,
+            padding=1,
+            border_padding=2,
+            grid_columns=2,
+        ),
     )
 
     assert result.atlas.size == (9, 7)
@@ -55,7 +74,10 @@ def test_trimming_records_original_source_bounds() -> None:
 
 def test_compact_packing_applies_border_padding_and_extrusion() -> None:
     result = create_sprite_sheet(
-        [solid_sprite((2, 2), (255, 0, 0, 255)), solid_sprite((3, 1), (0, 0, 255, 255))],
+        [
+            solid_sprite((2, 2), (255, 0, 0, 255)),
+            solid_sprite((3, 1), (0, 0, 255, 255)),
+        ],
         ["red.png", "blue.png"],
         SpriteSheetSettings(
             packing_mode="compact",
@@ -89,7 +111,9 @@ def test_repack_sheet_auto_extracts_separate_transparent_regions() -> None:
     result = repack_sprite_sheet(
         sheet,
         SheetExtractionSettings(mode="auto"),
-        SpriteSheetSettings(packing_mode="grid", trim_transparent=False, padding=0, grid_columns=2),
+        SpriteSheetSettings(
+            packing_mode="grid", trim_transparent=False, padding=0, grid_columns=2
+        ),
         name_prefix="atlas",
     )
 
@@ -106,8 +130,12 @@ def test_repack_sheet_grid_skips_empty_cells() -> None:
 
     result = repack_sprite_sheet(
         sheet,
-        SheetExtractionSettings(mode="grid", cell_width=2, cell_height=2, columns=3, rows=1),
-        SpriteSheetSettings(packing_mode="grid", trim_transparent=False, padding=0, grid_columns=2),
+        SheetExtractionSettings(
+            mode="grid", cell_width=2, cell_height=2, columns=3, rows=1
+        ),
+        SpriteSheetSettings(
+            packing_mode="grid", trim_transparent=False, padding=0, grid_columns=2
+        ),
     )
 
     assert tuple(result.metadata["frames"]) == ("frame_0001", "frame_0002")
@@ -129,13 +157,23 @@ def test_fixed_atlas_rejects_sprites_that_do_not_fit() -> None:
         create_sprite_sheet(
             [solid_sprite((5, 5), (255, 255, 255, 255))],
             ["large.png"],
-            SpriteSheetSettings(packing_mode="compact", trim_transparent=False, atlas_width=4, atlas_height=4, max_width=4, max_height=4),
+            SpriteSheetSettings(
+                packing_mode="compact",
+                trim_transparent=False,
+                atlas_width=4,
+                atlas_height=4,
+                max_width=4,
+                max_height=4,
+            ),
         )
 
 
 def test_compact_packing_can_rotate_frames_to_fit_fixed_atlas() -> None:
     result = create_sprite_sheet(
-        [solid_sprite((3, 2), (255, 0, 0, 255)), solid_sprite((3, 2), (0, 255, 0, 255))],
+        [
+            solid_sprite((3, 2), (255, 0, 0, 255)),
+            solid_sprite((3, 2), (0, 255, 0, 255)),
+        ],
         ["first.png", "second.png"],
         SpriteSheetSettings(
             packing_mode="compact",
@@ -195,7 +233,9 @@ def test_manual_sheet_grid_rejects_more_frames_than_configured_limit() -> None:
     with pytest.raises(SpriteSheetError, match="maximum frame count"):
         repack_sprite_sheet(
             sheet,
-            SheetExtractionSettings(mode="grid", cell_width=1, cell_height=1, max_frames=4),
+            SheetExtractionSettings(
+                mode="grid", cell_width=1, cell_height=1, max_frames=4
+            ),
             SpriteSheetSettings(packing_mode="grid"),
         )
 
@@ -221,9 +261,18 @@ def test_auto_sheet_extraction_checks_cancellation_within_large_region() -> None
 def test_compact_auto_packing_uses_available_atlas_bounds() -> None:
     sizes = [(4, 8), (12, 2), (10, 3), (16, 3)]
     result = create_sprite_sheet(
-        [solid_sprite(size, (index * 30, 255 - index * 30, 100, 255)) for index, size in enumerate(sizes)],
+        [
+            solid_sprite(size, (index * 30, 255 - index * 30, 100, 255))
+            for index, size in enumerate(sizes)
+        ],
         [f"sprite-{index}.png" for index in range(len(sizes))],
-        SpriteSheetSettings(packing_mode="compact", trim_transparent=False, padding=1, max_width=16, max_height=16),
+        SpriteSheetSettings(
+            packing_mode="compact",
+            trim_transparent=False,
+            padding=1,
+            max_width=16,
+            max_height=16,
+        ),
     )
 
     assert result.atlas.width <= 16

@@ -4,7 +4,12 @@ import numpy as np
 from .models import CancelCallback, ProcessingCancelled
 
 
-def downscale_by_majority_vote(image_array: np.ndarray, scale_x: int, scale_y: int, cancel: CancelCallback | None = None) -> Image.Image:
+def downscale_by_majority_vote(
+    image_array: np.ndarray,
+    scale_x: int,
+    scale_y: int,
+    cancel: CancelCallback | None = None,
+) -> Image.Image:
     if scale_x < 1 or scale_y < 1:
         raise ValueError("Scale values must be positive integers.")
 
@@ -25,7 +30,9 @@ def downscale_by_majority_vote(image_array: np.ndarray, scale_x: int, scale_y: i
     for y in range(target_height):
         _raise_if_cancelled(cancel)
         for x in range(target_width):
-            block = cropped[y * scale_y : (y + 1) * scale_y, x * scale_x : (x + 1) * scale_x]
+            block = cropped[
+                y * scale_y : (y + 1) * scale_y, x * scale_x : (x + 1) * scale_x
+            ]
             output[y, x] = _most_common_color(block)
 
     mode = "RGBA" if channels == 4 else "RGB"
@@ -59,7 +66,9 @@ def downscale_by_dominant_color_cluster(
     for y in range(target_height):
         _raise_if_cancelled(cancel)
         for x in range(target_width):
-            block = cropped[y * scale_y : (y + 1) * scale_y, x * scale_x : (x + 1) * scale_x]
+            block = cropped[
+                y * scale_y : (y + 1) * scale_y, x * scale_x : (x + 1) * scale_x
+            ]
             output[y, x] = _dominant_color_cluster(block, bucket_size)
 
     mode = "RGBA" if channels == 4 else "RGB"
@@ -90,7 +99,7 @@ def downscale_by_resampled_grid(
         for x in range(target_width):
             x0 = int(np.floor(x * width / target_width))
             x1 = int(np.ceil((x + 1) * width / target_width))
-            block = image_array[y0:max(y0 + 1, y1), x0:max(x0 + 1, x1)]
+            block = image_array[y0 : max(y0 + 1, y1), x0 : max(x0 + 1, x1)]
             if aggregation == "dominant-color-cluster":
                 output[y, x] = _dominant_color_cluster(block, bucket_size)
             else:
@@ -119,7 +128,9 @@ def _dominant_color_cluster(block: np.ndarray, bucket_size: int) -> np.ndarray:
         alpha = pixels[:, 3:4] // max(1, bucket_size * 2)
         quantized = np.concatenate((quantized, alpha), axis=1)
 
-    buckets, inverse, counts = np.unique(quantized, axis=0, return_inverse=True, return_counts=True)
+    buckets, inverse, counts = np.unique(
+        quantized, axis=0, return_inverse=True, return_counts=True
+    )
     dominant_bucket = int(np.argmax(counts))
     dominant_pixels = pixels[inverse == dominant_bucket]
     if dominant_pixels.size == 0:

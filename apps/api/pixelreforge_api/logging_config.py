@@ -25,7 +25,9 @@ class RequestContextFilter(logging.Filter):
 class JsonFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
         payload: dict[str, Any] = {
-            "timestamp": datetime.fromtimestamp(record.created, tz=timezone.utc).isoformat().replace("+00:00", "Z"),
+            "timestamp": datetime.fromtimestamp(record.created, tz=timezone.utc)
+            .isoformat()
+            .replace("+00:00", "Z"),
             "level": record.levelname,
             "logger": record.name,
             "event": getattr(record, "event", record.getMessage()),
@@ -69,4 +71,6 @@ def configure_logging(settings: ApiSettings) -> None:
     logging.basicConfig(level=level, handlers=[handler], force=True)
     logging.getLogger("pixelreforge_api").setLevel(level)
     logging.getLogger("uvicorn.error").setLevel(level)
-    logging.getLogger("uvicorn.access").setLevel(logging.WARNING if settings.log_successful_requests else level)
+    logging.getLogger("uvicorn.access").setLevel(
+        logging.WARNING if settings.log_successful_requests else level
+    )

@@ -23,39 +23,70 @@ class GridHypothesis:
     components: dict[str, float]
 
 
-def detect_ai_grid_hypothesis_scale(image_array: np.ndarray, settings: RestoreSettings) -> ScaleEstimate:
+def detect_ai_grid_hypothesis_scale(
+    image_array: np.ndarray, settings: RestoreSettings
+) -> ScaleEstimate:
     height, width = image_array.shape[:2]
-    candidates = _candidate_target_sizes(width, height, settings.min_scale, settings.max_scale)
+    candidates = _candidate_target_sizes(
+        width, height, settings.min_scale, settings.max_scale
+    )
     if not candidates:
-        return ScaleEstimate(1.0, 1.0, 0.0, 0.0, "ai-grid-hypothesis-v1", {"candidate_count": 0, "top_candidates": []})
+        return ScaleEstimate(
+            1.0,
+            1.0,
+            0.0,
+            0.0,
+            "ai-grid-hypothesis-v1",
+            {"candidate_count": 0, "top_candidates": []},
+        )
 
     horizontal_signal = _boundary_signal(image_array, axis="x")
     vertical_signal = _boundary_signal(image_array, axis="y")
     image = _to_pil(image_array)
     scored = [
-        _score_hypothesis(image, image_array, target_width, target_height, horizontal_signal, vertical_signal)
+        _score_hypothesis(
+            image,
+            image_array,
+            target_width,
+            target_height,
+            horizontal_signal,
+            vertical_signal,
+        )
         for target_width, target_height in candidates
     ]
     scored.sort(key=lambda item: item.score, reverse=True)
 
     best = scored[0]
     second_score = scored[1].score if len(scored) > 1 else 0.0
-    confidence = _clamp01((best.score * 0.72) + min(0.28, max(0.0, best.score - second_score) * 2.5))
+    confidence = _clamp01(
+        (best.score * 0.72) + min(0.28, max(0.0, best.score - second_score) * 2.5)
+    )
     details = {
         "candidate_count": len(scored),
         "top_candidates": [_hypothesis_metadata(candidate) for candidate in scored[:5]],
     }
-    return ScaleEstimate(best.scale_x, best.scale_y, confidence, confidence, "ai-grid-hypothesis-v1", details)
+    return ScaleEstimate(
+        best.scale_x,
+        best.scale_y,
+        confidence,
+        confidence,
+        "ai-grid-hypothesis-v1",
+        details,
+    )
 
 
-def _candidate_target_sizes(width: int, height: int, min_scale: int, max_scale: int) -> list[tuple[int, int]]:
+def _candidate_target_sizes(
+    width: int, height: int, min_scale: int, max_scale: int
+) -> list[tuple[int, int]]:
     min_scale = max(1, int(min_scale))
     max_scale = max(min_scale, int(max_scale))
     candidates: set[tuple[int, int]] = set()
 
     for scale in COMMON_SCALES:
         if min_scale <= scale <= max_scale:
-            candidates.add((max(1, int(round(width / scale))), max(1, int(round(height / scale)))))
+            candidates.add(
+                (max(1, int(round(width / scale))), max(1, int(round(height / scale))))
+            )
 
     aspect = height / max(1, width)
     for target_width in COMMON_TARGET_SIZES:
@@ -65,11 +96,20 @@ def _candidate_target_sizes(width: int, height: int, min_scale: int, max_scale: 
     return sorted(
         (target_width, target_height)
         for target_width, target_height in candidates
-        if _target_size_is_valid(width, height, target_width, target_height, min_scale, max_scale)
+        if _target_size_is_valid(
+            width, height, target_width, target_height, min_scale, max_scale
+        )
     )
 
 
-def _target_size_is_valid(width: int, height: int, target_width: int, target_height: int, min_scale: int, max_scale: int) -> bool:
+def _target_size_is_valid(
+    width: int,
+    height: int,
+    target_width: int,
+    target_height: int,
+    min_scale: int,
+    max_scale: int,
+) -> bool:
     if target_width < 4 or target_height < 4:
         return False
     if target_width >= width or target_height >= height:
@@ -92,7 +132,9 @@ def _score_hypothesis(
     reconstructed = restored.resize((width, height), Image.Resampling.NEAREST)
 
     source_rgb = image_array[:, :, :3].astype(np.float32, copy=False)
-    reconstructed_rgb = np.asarray(reconstructed)[:, :, :3].astype(np.float32, copy=False)
+    reconstructed_rgb = np.asarray(reconstructed)[:, :, :3].astype(
+        np.float32, copy=False
+    )
     normalized_mae = float(np.mean(np.abs(source_rgb - reconstructed_rgb)) / 255.0)
     reconstruction_score = 1.0 - min(1.0, normalized_mae / 0.35)
 
@@ -121,7 +163,9 @@ def _score_hypothesis(
         "xy_consistency": xy_consistency,
         "normalized_mae": normalized_mae,
     }
-    return GridHypothesis(target_width, target_height, scale_x, scale_y, _clamp01(score), components)
+    return GridHypothesis(
+        target_width, target_height, scale_x, scale_y, _clamp01(score), components
+    )
 
 
 def _palette_compactness_score(image_array: np.ndarray) -> float:
@@ -152,10 +196,15 @@ def _boundary_signal(image_array: np.ndarray, axis: str) -> np.ndarray:
     raise ValueError(f"Unsupported axis: {axis}")
 
 
-def _target_size_confidence(signal: np.ndarray, image_size: int, target_size: int) -> float:
+def _target_size_confidence(
+    signal: np.ndarray, image_size: int, target_size: int
+) -> float:
     if target_size <= 1 or target_size >= image_size:
         return 0.0
-    boundaries = np.rint(np.arange(1, target_size) * image_size / target_size).astype(np.int64) - 1
+    boundaries = (
+        np.rint(np.arange(1, target_size) * image_size / target_size).astype(np.int64)
+        - 1
+    )
     boundaries = boundaries[(boundaries >= 0) & (boundaries < signal.size)]
     if boundaries.size == 0:
         return 0.0
@@ -181,7 +230,9 @@ def _hypothesis_metadata(hypothesis: GridHypothesis) -> dict[str, object]:
         "scale_x": round(hypothesis.scale_x, 6),
         "scale_y": round(hypothesis.scale_y, 6),
         "score": round(hypothesis.score, 6),
-        "components": {key: round(value, 6) for key, value in hypothesis.components.items()},
+        "components": {
+            key: round(value, 6) for key, value in hypothesis.components.items()
+        },
     }
 
 

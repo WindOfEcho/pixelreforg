@@ -4,7 +4,12 @@ from PIL import Image
 
 from ..models import CancelCallback, ProgressCallback
 from .extraction import frames_from_images
-from .models import AtlasFrame, SheetExtractionSettings, SpriteSheetResult, SpriteSheetSettings
+from .models import (
+    AtlasFrame,
+    SheetExtractionSettings,
+    SpriteSheetResult,
+    SpriteSheetSettings,
+)
 from .packing import pack_frames
 
 
@@ -20,7 +25,9 @@ def create_sprite_sheet(
 
     resolved_settings = settings or SpriteSheetSettings()
     _report(progress, "normalize_inputs", 10.0, "Normalizing sprite images...")
-    frames, warnings = frames_from_images(images, names, resolved_settings, cancel=cancel)
+    frames, warnings = frames_from_images(
+        images, names, resolved_settings, cancel=cancel
+    )
     _report(progress, "pack_sprites", 55.0, "Packing sprites into atlas...")
     packed = pack_frames(frames, resolved_settings, cancel=cancel)
     _report(progress, "render_atlas", 85.0, "Rendering atlas image...")
@@ -49,7 +56,9 @@ def repack_sprite_sheet(
 
     resolved_settings = settings or SpriteSheetSettings()
     _report(progress, "extract_sprites", 15.0, "Extracting sprites from sheet...")
-    extracted = extract_sprites_from_sheet(image, extraction_settings, name_prefix=name_prefix, cancel=cancel)
+    extracted = extract_sprites_from_sheet(
+        image, extraction_settings, name_prefix=name_prefix, cancel=cancel
+    )
     _report(progress, "trim_sprites", 38.0, "Applying sprite bounds...")
     frames, warnings = frames_from_images(
         [frame.image for frame in extracted],
@@ -78,7 +87,12 @@ def _metadata(
     return {
         "frames": {
             frame.name: {
-                "frame": {"x": frame.x, "y": frame.y, "w": frame.width, "h": frame.height},
+                "frame": {
+                    "x": frame.x,
+                    "y": frame.y,
+                    "w": frame.width,
+                    "h": frame.height,
+                },
                 "rotated": frame.rotated,
                 "trimmed": frame.trimmed,
                 "spriteSourceSize": {
@@ -103,6 +117,8 @@ def _metadata(
     }
 
 
-def _report(progress: ProgressCallback | None, stage: str, percent: float, message: str) -> None:
+def _report(
+    progress: ProgressCallback | None, stage: str, percent: float, message: str
+) -> None:
     if progress is not None:
         progress(stage, percent, message)

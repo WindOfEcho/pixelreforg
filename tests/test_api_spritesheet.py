@@ -40,7 +40,9 @@ def client(api_settings: ApiSettings, job_store: SQLiteJobStore) -> TestClient:
     return TestClient(create_app(settings=api_settings, job_store=job_store))
 
 
-def png_upload(name: str, size: tuple[int, int], color: tuple[int, int, int, int]) -> tuple[str, tuple[str, BytesIO, str]]:
+def png_upload(
+    name: str, size: tuple[int, int], color: tuple[int, int, int, int]
+) -> tuple[str, tuple[str, BytesIO, str]]:
     image = Image.new("RGBA", size, color)
     payload = BytesIO()
     image.save(payload, format="PNG")
@@ -48,7 +50,9 @@ def png_upload(name: str, size: tuple[int, int], color: tuple[int, int, int, int
     return "files", (name, payload, "image/png")
 
 
-def test_sprite_sheet_job_processes_multiple_images_and_exports_metadata(client: TestClient, worker: JobWorker) -> None:
+def test_sprite_sheet_job_processes_multiple_images_and_exports_metadata(
+    client: TestClient, worker: JobWorker
+) -> None:
     response = client.post(
         "/api/sprite-sheets?packing_mode=grid&grid_columns=2&padding=1&include_metadata=true",
         files=[
@@ -87,7 +91,9 @@ def test_sprite_sheet_job_processes_multiple_images_and_exports_metadata(client:
     assert metadata["meta"]["size"] == {"w": 5, "h": 3}
 
 
-def test_sprite_sheet_accepts_a_single_grid_extracted_sheet(client: TestClient, worker: JobWorker) -> None:
+def test_sprite_sheet_accepts_a_single_grid_extracted_sheet(
+    client: TestClient, worker: JobWorker
+) -> None:
     sheet = Image.new("RGBA", (6, 2), (0, 0, 0, 0))
     sheet.paste((255, 0, 0, 255), (0, 0, 2, 2))
     sheet.paste((0, 255, 0, 255), (4, 0, 6, 2))
@@ -108,7 +114,9 @@ def test_sprite_sheet_accepts_a_single_grid_extracted_sheet(client: TestClient, 
     assert metadata["analysis"]["frame_count"] == 2
 
 
-def test_sprite_sheet_rejects_multiple_uploads_in_sheet_mode(client: TestClient) -> None:
+def test_sprite_sheet_rejects_multiple_uploads_in_sheet_mode(
+    client: TestClient,
+) -> None:
     response = client.post(
         "/api/sprite-sheets?input_mode=sheet",
         files=[
@@ -131,7 +139,9 @@ def test_sprite_sheet_rejects_invalid_image_payload(client: TestClient) -> None:
     assert response.json()["detail"] == "An uploaded file is not a valid image."
 
 
-def test_sprite_sheet_hides_metadata_when_export_is_disabled(client: TestClient, worker: JobWorker) -> None:
+def test_sprite_sheet_hides_metadata_when_export_is_disabled(
+    client: TestClient, worker: JobWorker
+) -> None:
     response = client.post(
         "/api/sprite-sheets?include_metadata=false",
         files=[png_upload("sprite.png", (1, 1), (255, 0, 0, 255))],
@@ -144,9 +154,13 @@ def test_sprite_sheet_hides_metadata_when_export_is_disabled(client: TestClient,
     assert metadata_response.status_code == 404
 
 
-def test_sprite_sheet_rejects_a_batch_over_the_decoded_pixel_limit(api_settings: ApiSettings) -> None:
+def test_sprite_sheet_rejects_a_batch_over_the_decoded_pixel_limit(
+    api_settings: ApiSettings,
+) -> None:
     settings = replace(api_settings, sprite_sheet_max_total_pixels=3)
-    client = TestClient(create_app(settings=settings, job_store=SQLiteJobStore(settings.database_url)))
+    client = TestClient(
+        create_app(settings=settings, job_store=SQLiteJobStore(settings.database_url))
+    )
 
     response = client.post(
         "/api/sprite-sheets",
@@ -160,9 +174,13 @@ def test_sprite_sheet_rejects_a_batch_over_the_decoded_pixel_limit(api_settings:
     assert response.json()["detail"] == "Uploaded sprites exceed the total pixel limit."
 
 
-def test_sprite_sheet_rejects_fixed_atlas_over_pixel_limit(api_settings: ApiSettings) -> None:
+def test_sprite_sheet_rejects_fixed_atlas_over_pixel_limit(
+    api_settings: ApiSettings,
+) -> None:
     settings = replace(api_settings, sprite_sheet_max_atlas_pixels=4)
-    client = TestClient(create_app(settings=settings, job_store=SQLiteJobStore(settings.database_url)))
+    client = TestClient(
+        create_app(settings=settings, job_store=SQLiteJobStore(settings.database_url))
+    )
 
     response = client.post(
         "/api/sprite-sheets?atlas_width=3&atlas_height=2",
@@ -170,12 +188,19 @@ def test_sprite_sheet_rejects_fixed_atlas_over_pixel_limit(api_settings: ApiSett
     )
 
     assert response.status_code == 422
-    assert response.json()["detail"] == "Fixed atlas dimensions exceed the atlas pixel limit."
+    assert (
+        response.json()["detail"]
+        == "Fixed atlas dimensions exceed the atlas pixel limit."
+    )
 
 
-def test_sprite_sheet_rejects_request_before_multipart_parsing(api_settings: ApiSettings) -> None:
+def test_sprite_sheet_rejects_request_before_multipart_parsing(
+    api_settings: ApiSettings,
+) -> None:
     settings = replace(api_settings, sprite_sheet_max_request_bytes=1)
-    client = TestClient(create_app(settings=settings, job_store=SQLiteJobStore(settings.database_url)))
+    client = TestClient(
+        create_app(settings=settings, job_store=SQLiteJobStore(settings.database_url))
+    )
 
     response = client.post(
         "/api/sprite-sheets",
@@ -183,12 +208,19 @@ def test_sprite_sheet_rejects_request_before_multipart_parsing(api_settings: Api
     )
 
     assert response.status_code == 413
-    assert response.json()["detail"] == "Sprite-sheet upload exceeds the request size limit."
+    assert (
+        response.json()["detail"]
+        == "Sprite-sheet upload exceeds the request size limit."
+    )
 
 
-def test_sprite_sheet_request_limit_covers_trailing_slash_and_preserves_cors(api_settings: ApiSettings) -> None:
+def test_sprite_sheet_request_limit_covers_trailing_slash_and_preserves_cors(
+    api_settings: ApiSettings,
+) -> None:
     settings = replace(api_settings, sprite_sheet_max_request_bytes=1)
-    client = TestClient(create_app(settings=settings, job_store=SQLiteJobStore(settings.database_url)))
+    client = TestClient(
+        create_app(settings=settings, job_store=SQLiteJobStore(settings.database_url))
+    )
 
     response = client.post(
         "/api/sprite-sheets/",
@@ -201,9 +233,13 @@ def test_sprite_sheet_request_limit_covers_trailing_slash_and_preserves_cors(api
     assert response.headers["access-control-allow-credentials"] == "true"
 
 
-def test_sprite_sheet_grid_respects_configured_frame_limit(api_settings: ApiSettings) -> None:
+def test_sprite_sheet_grid_respects_configured_frame_limit(
+    api_settings: ApiSettings,
+) -> None:
     settings = replace(api_settings, sprite_sheet_max_frames=4)
-    client = TestClient(create_app(settings=settings, job_store=SQLiteJobStore(settings.database_url)))
+    client = TestClient(
+        create_app(settings=settings, job_store=SQLiteJobStore(settings.database_url))
+    )
 
     response = client.post(
         "/api/sprite-sheets?input_mode=sheet&extraction_mode=grid&cell_width=1&cell_height=1&columns=3&rows=2",
@@ -241,6 +277,7 @@ def test_cancelled_sprite_sheet_job_cannot_be_completed_by_worker_race(
 
     def update_with_cancellation(job_id: str, update):  # type: ignore[no-untyped-def]
         if update.__name__ == "complete":
+
             def cancel_before_complete(metadata):  # type: ignore[no-untyped-def]
                 metadata.status = "cancelled"
                 metadata.cancel_requested = True
@@ -249,7 +286,9 @@ def test_cancelled_sprite_sheet_job_cannot_be_completed_by_worker_race(
             original_update(job_id, cancel_before_complete)
         return original_update(job_id, update)
 
-    monkeypatch.setattr("pixelreforge_api.processing.process_sprite_sheet_job", fake_processing)
+    monkeypatch.setattr(
+        "pixelreforge_api.processing.process_sprite_sheet_job", fake_processing
+    )
     monkeypatch.setattr(job_store, "update_job", update_with_cancellation)
 
     assert worker.run_once() is True
@@ -311,7 +350,18 @@ def test_job_store_migrates_legacy_restore_rows(tmp_path) -> None:
                 warnings, attempts, max_attempts, cancel_requested, params
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            ("legacy-job", "queued", 0.0, "legacy.png", "runtime/jobs/legacy-job/input.png", "[]", 0, 3, 0, "{}"),
+            (
+                "legacy-job",
+                "queued",
+                0.0,
+                "legacy.png",
+                "runtime/jobs/legacy-job/input.png",
+                "[]",
+                0,
+                3,
+                0,
+                "{}",
+            ),
         )
 
     store = SQLiteJobStore(f"sqlite:///{database_path}")

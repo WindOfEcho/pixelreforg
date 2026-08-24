@@ -36,14 +36,34 @@ def detect_scale(image_array: np.ndarray, settings: RestoreSettings) -> ScaleEst
     vertical_signal = _boundary_signal(image_array, axis="y")
 
     if settings.algorithm in ("resampled-grid-v2", "noisy-pixel-v1", "ai-pixel-v2"):
-        scale_x, confidence_x = _best_fractional_scale(horizontal_signal, width, settings.min_scale, max_scale_x, settings.fractional_scale_step)
-        scale_y, confidence_y = _best_fractional_scale(vertical_signal, height, settings.min_scale, max_scale_y, settings.fractional_scale_step)
-        return ScaleEstimate(scale_x, scale_y, confidence_x, confidence_y, "fractional-boundary-energy")
+        scale_x, confidence_x = _best_fractional_scale(
+            horizontal_signal,
+            width,
+            settings.min_scale,
+            max_scale_x,
+            settings.fractional_scale_step,
+        )
+        scale_y, confidence_y = _best_fractional_scale(
+            vertical_signal,
+            height,
+            settings.min_scale,
+            max_scale_y,
+            settings.fractional_scale_step,
+        )
+        return ScaleEstimate(
+            scale_x, scale_y, confidence_x, confidence_y, "fractional-boundary-energy"
+        )
 
-    scale_x, confidence_x = _best_scale(horizontal_signal, width, settings.min_scale, max_scale_x)
-    scale_y, confidence_y = _best_scale(vertical_signal, height, settings.min_scale, max_scale_y)
+    scale_x, confidence_x = _best_scale(
+        horizontal_signal, width, settings.min_scale, max_scale_x
+    )
+    scale_y, confidence_y = _best_scale(
+        vertical_signal, height, settings.min_scale, max_scale_y
+    )
 
-    return ScaleEstimate(scale_x, scale_y, confidence_x, confidence_y, "periodic-boundary-energy")
+    return ScaleEstimate(
+        scale_x, scale_y, confidence_x, confidence_y, "periodic-boundary-energy"
+    )
 
 
 def _boundary_signal(image_array: np.ndarray, axis: str) -> np.ndarray:
@@ -57,7 +77,9 @@ def _boundary_signal(image_array: np.ndarray, axis: str) -> np.ndarray:
     raise ValueError(f"Unsupported axis: {axis}")
 
 
-def _best_scale(signal: np.ndarray, image_size: int, min_scale: int, max_scale: int) -> tuple[int, float]:
+def _best_scale(
+    signal: np.ndarray, image_size: int, min_scale: int, max_scale: int
+) -> tuple[int, float]:
     if signal.size == 0 or max_scale < min_scale or float(signal.sum()) == 0.0:
         return 1, 0.0
 
@@ -80,7 +102,9 @@ def _scale_confidence(signal: np.ndarray, scale: int) -> float:
     if scale <= 1:
         return 0.0
 
-    buckets = np.array([signal[offset::scale].sum() for offset in range(scale)], dtype=np.float64)
+    buckets = np.array(
+        [signal[offset::scale].sum() for offset in range(scale)], dtype=np.float64
+    )
     total = float(buckets.sum())
     if total == 0.0:
         return 0.0
@@ -90,7 +114,13 @@ def _scale_confidence(signal: np.ndarray, scale: int) -> float:
     return max(0.0, (concentration - baseline) / (1.0 - baseline))
 
 
-def _best_fractional_scale(signal: np.ndarray, image_size: int, min_scale: int, max_scale: int, _scale_step: float) -> tuple[float, float]:
+def _best_fractional_scale(
+    signal: np.ndarray,
+    image_size: int,
+    min_scale: int,
+    max_scale: int,
+    _scale_step: float,
+) -> tuple[float, float]:
     if signal.size == 0 or max_scale < min_scale or float(signal.sum()) == 0.0:
         return 1.0, 0.0
 
@@ -106,22 +136,35 @@ def _best_fractional_scale(signal: np.ndarray, image_size: int, min_scale: int, 
     if not candidates:
         return 1.0, 0.0
 
-    larger_candidates = [(scale, confidence) for scale, confidence in candidates if scale >= 2.0]
+    larger_candidates = [
+        (scale, confidence) for scale, confidence in candidates if scale >= 2.0
+    ]
     if larger_candidates:
         best_large_confidence = max(confidence for _, confidence in larger_candidates)
-        viable = [(scale, confidence) for scale, confidence in larger_candidates if confidence >= best_large_confidence - 0.20]
+        viable = [
+            (scale, confidence)
+            for scale, confidence in larger_candidates
+            if confidence >= best_large_confidence - 0.20
+        ]
         best_scale, best_confidence = max(viable, key=lambda item: item[0])
     else:
-        best_scale, best_confidence = max(candidates, key=lambda item: (item[1], item[0]))
+        best_scale, best_confidence = max(
+            candidates, key=lambda item: (item[1], item[0])
+        )
 
     return best_scale, min(1.0, best_confidence)
 
 
-def _target_size_confidence(signal: np.ndarray, image_size: int, target_size: int) -> float:
+def _target_size_confidence(
+    signal: np.ndarray, image_size: int, target_size: int
+) -> float:
     if target_size <= 1 or target_size >= image_size:
         return 0.0
 
-    boundaries = np.rint(np.arange(1, target_size) * image_size / target_size).astype(np.int64) - 1
+    boundaries = (
+        np.rint(np.arange(1, target_size) * image_size / target_size).astype(np.int64)
+        - 1
+    )
     boundaries = boundaries[(boundaries >= 0) & (boundaries < signal.size)]
     if boundaries.size == 0:
         return 0.0

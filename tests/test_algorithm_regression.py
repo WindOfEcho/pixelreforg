@@ -30,25 +30,114 @@ class RegressionCase:
 
 
 BASE_REGRESSION_CASES = (
-    RegressionCase("zephyr-small-test-x2.png", RestoreSettings(algorithm="auto", scale_mode="auto", min_scale=1, max_scale=8), (16, 16), "zephyr-small-original-16x16px.png"),
-    RegressionCase("zephyr-small-test-x3.png", RestoreSettings(algorithm="auto", scale_mode="auto", min_scale=1, max_scale=8), (16, 16), "zephyr-small-original-16x16px.png"),
-    RegressionCase("zephyr-small-test-x4.png", RestoreSettings(algorithm="auto", scale_mode="auto", min_scale=1, max_scale=8), (16, 16), "zephyr-small-original-16x16px.png"),
-    RegressionCase("zephyr-small-test-jpegs-x1-90.jpg", RestoreSettings(algorithm="auto", scale_mode="auto", min_scale=1, max_scale=8), (16, 16)),
-    RegressionCase("zephyr-small-test-jpegs-x3-90.jpg", RestoreSettings(algorithm="auto", scale_mode="auto", min_scale=1, max_scale=8), (16, 16), "zephyr-small-original-16x16px.png"),
-    RegressionCase("zephyr-small-test-jpegs-x4-90.jpg", RestoreSettings(algorithm="auto", scale_mode="auto", min_scale=1, max_scale=8), (16, 16), "zephyr-small-original-16x16px.png"),
-    RegressionCase("test-x3.6.png", RestoreSettings(algorithm="auto", scale_mode="auto", min_scale=1, max_scale=16), (32, 32), "test-original-32x32px.png"),
-    RegressionCase("test-x6.3.png", RestoreSettings(algorithm="auto", scale_mode="auto", min_scale=1, max_scale=16), (32, 32), "test-original-32x32px.png"),
-    RegressionCase("test-jpegs-x3.6-90.jpg", RestoreSettings(algorithm="auto", scale_mode="auto", min_scale=1, max_scale=16), (32, 32), "test-original-32x32px.png"),
-    RegressionCase("test-jpegs-x6.3-90.jpg", RestoreSettings(algorithm="auto", scale_mode="auto", min_scale=1, max_scale=16), (32, 32), "test-original-32x32px.png"),
-    RegressionCase("test-bicubic_resize-x4.png", RestoreSettings(algorithm="auto", scale_mode="auto", min_scale=1, max_scale=16), (32, 32), "test-original-32x32px.png"),
-    RegressionCase("test-bilinear_resize-x4.png", RestoreSettings(algorithm="auto", scale_mode="auto", min_scale=1, max_scale=16), (32, 32), "test-original-32x32px.png"),
-    RegressionCase("zephyr-silly-x4-crop-left1-top2.png", RestoreSettings(algorithm="auto", scale_mode="auto", min_scale=1, max_scale=8)),
-    RegressionCase("zephyr-silly-x4-crop-right2-bottom1.png", RestoreSettings(algorithm="auto", scale_mode="auto", min_scale=1, max_scale=8)),
-    RegressionCase("zephyr-fullbody-test-x4.png", RestoreSettings(algorithm="auto", scale_mode="auto", min_scale=1, max_scale=8), (40, 92), "zephyr-fullbody-original-40x92.png"),
-    RegressionCase("zephyr-fullbody-test-x6.3.png", RestoreSettings(algorithm="auto", scale_mode="auto", min_scale=1, max_scale=8), (40, 92), "zephyr-fullbody-original-40x92.png"),
-    RegressionCase("zephyr-fullbody-test-jpegs-x1-90.jpg", RestoreSettings(algorithm="auto", scale_mode="auto", min_scale=1, max_scale=8), (40, 92)),
-    RegressionCase("zephyr-fullbody-test-jpegs-x4-90.jpg", RestoreSettings(algorithm="auto", scale_mode="auto", min_scale=1, max_scale=8), (40, 92), "zephyr-fullbody-original-40x92.png"),
-    RegressionCase("zephyr-fullbody-test-jpegs-x6.3-90.jpg", RestoreSettings(algorithm="auto", scale_mode="auto", min_scale=1, max_scale=8), (40, 92), "zephyr-fullbody-original-40x92.png"),
+    RegressionCase(
+        "zephyr-small-test-x2.png",
+        RestoreSettings(algorithm="auto", scale_mode="auto", min_scale=1, max_scale=8),
+        (16, 16),
+        "zephyr-small-original-16x16px.png",
+    ),
+    RegressionCase(
+        "zephyr-small-test-x3.png",
+        RestoreSettings(algorithm="auto", scale_mode="auto", min_scale=1, max_scale=8),
+        (16, 16),
+        "zephyr-small-original-16x16px.png",
+    ),
+    RegressionCase(
+        "zephyr-small-test-x4.png",
+        RestoreSettings(algorithm="auto", scale_mode="auto", min_scale=1, max_scale=8),
+        (16, 16),
+        "zephyr-small-original-16x16px.png",
+    ),
+    RegressionCase(
+        "zephyr-small-test-jpegs-x1-90.jpg",
+        RestoreSettings(algorithm="auto", scale_mode="auto", min_scale=1, max_scale=8),
+        (16, 16),
+    ),
+    RegressionCase(
+        "zephyr-small-test-jpegs-x3-90.jpg",
+        RestoreSettings(algorithm="auto", scale_mode="auto", min_scale=1, max_scale=8),
+        (16, 16),
+        "zephyr-small-original-16x16px.png",
+    ),
+    RegressionCase(
+        "zephyr-small-test-jpegs-x4-90.jpg",
+        RestoreSettings(algorithm="auto", scale_mode="auto", min_scale=1, max_scale=8),
+        (16, 16),
+        "zephyr-small-original-16x16px.png",
+    ),
+    RegressionCase(
+        "test-x3.6.png",
+        RestoreSettings(algorithm="auto", scale_mode="auto", min_scale=1, max_scale=16),
+        (32, 32),
+        "test-original-32x32px.png",
+    ),
+    RegressionCase(
+        "test-x6.3.png",
+        RestoreSettings(algorithm="auto", scale_mode="auto", min_scale=1, max_scale=16),
+        (32, 32),
+        "test-original-32x32px.png",
+    ),
+    RegressionCase(
+        "test-jpegs-x3.6-90.jpg",
+        RestoreSettings(algorithm="auto", scale_mode="auto", min_scale=1, max_scale=16),
+        (32, 32),
+        "test-original-32x32px.png",
+    ),
+    RegressionCase(
+        "test-jpegs-x6.3-90.jpg",
+        RestoreSettings(algorithm="auto", scale_mode="auto", min_scale=1, max_scale=16),
+        (32, 32),
+        "test-original-32x32px.png",
+    ),
+    RegressionCase(
+        "test-bicubic_resize-x4.png",
+        RestoreSettings(algorithm="auto", scale_mode="auto", min_scale=1, max_scale=16),
+        (32, 32),
+        "test-original-32x32px.png",
+    ),
+    RegressionCase(
+        "test-bilinear_resize-x4.png",
+        RestoreSettings(algorithm="auto", scale_mode="auto", min_scale=1, max_scale=16),
+        (32, 32),
+        "test-original-32x32px.png",
+    ),
+    RegressionCase(
+        "zephyr-silly-x4-crop-left1-top2.png",
+        RestoreSettings(algorithm="auto", scale_mode="auto", min_scale=1, max_scale=8),
+    ),
+    RegressionCase(
+        "zephyr-silly-x4-crop-right2-bottom1.png",
+        RestoreSettings(algorithm="auto", scale_mode="auto", min_scale=1, max_scale=8),
+    ),
+    RegressionCase(
+        "zephyr-fullbody-test-x4.png",
+        RestoreSettings(algorithm="auto", scale_mode="auto", min_scale=1, max_scale=8),
+        (40, 92),
+        "zephyr-fullbody-original-40x92.png",
+    ),
+    RegressionCase(
+        "zephyr-fullbody-test-x6.3.png",
+        RestoreSettings(algorithm="auto", scale_mode="auto", min_scale=1, max_scale=8),
+        (40, 92),
+        "zephyr-fullbody-original-40x92.png",
+    ),
+    RegressionCase(
+        "zephyr-fullbody-test-jpegs-x1-90.jpg",
+        RestoreSettings(algorithm="auto", scale_mode="auto", min_scale=1, max_scale=8),
+        (40, 92),
+    ),
+    RegressionCase(
+        "zephyr-fullbody-test-jpegs-x4-90.jpg",
+        RestoreSettings(algorithm="auto", scale_mode="auto", min_scale=1, max_scale=8),
+        (40, 92),
+        "zephyr-fullbody-original-40x92.png",
+    ),
+    RegressionCase(
+        "zephyr-fullbody-test-jpegs-x6.3-90.jpg",
+        RestoreSettings(algorithm="auto", scale_mode="auto", min_scale=1, max_scale=8),
+        (40, 92),
+        "zephyr-fullbody-original-40x92.png",
+    ),
 )
 
 AI_REGRESSION_CASES = tuple(
@@ -64,14 +153,21 @@ AI_REGRESSION_CASES = tuple(
 AI_GRID_HYPOTHESIS_CASES = tuple(
     RegressionCase(
         path.name,
-        RestoreSettings(algorithm="ai-grid-hypothesis-v1", scale_mode="auto", min_scale=2, max_scale=16),
+        RestoreSettings(
+            algorithm="ai-grid-hypothesis-v1",
+            scale_mode="auto",
+            min_scale=2,
+            max_scale=16,
+        ),
         thumbnail_max_size=256,
         case_name=f"{path.name}:ai-grid-hypothesis-v1",
     )
     for path in sorted(FIXTURES.glob("test-ai-*.png"))
 )
 
-REGRESSION_CASES = BASE_REGRESSION_CASES + AI_REGRESSION_CASES + AI_GRID_HYPOTHESIS_CASES
+REGRESSION_CASES = (
+    BASE_REGRESSION_CASES + AI_REGRESSION_CASES + AI_GRID_HYPOTHESIS_CASES
+)
 
 
 def test_algorithm_regression_matrix_records_statistics() -> None:
@@ -80,7 +176,10 @@ def test_algorithm_regression_matrix_records_statistics() -> None:
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     OUTPUT.write_text(json.dumps(records, indent=2, sort_keys=True), encoding="utf-8")
 
-    assert all(record["target_size"][0] >= 1 and record["target_size"][1] >= 1 for record in records)
+    assert all(
+        record["target_size"][0] >= 1 and record["target_size"][1] >= 1
+        for record in records
+    )
     assert all(record["algorithm_used"] for record in records)
     assert all(record["duration_ms"] >= 0.0 for record in records)
 
@@ -119,7 +218,9 @@ def _run_case(case: RegressionCase) -> dict[str, object]:
 
     if result.analysis is not None:
         record["recommended_algorithm"] = result.analysis.get("recommended_algorithm")
-        record["recommendation_confidence"] = result.analysis.get("recommendation_confidence")
+        record["recommendation_confidence"] = result.analysis.get(
+            "recommendation_confidence"
+        )
         record["recommendation_reason"] = result.analysis.get("recommendation_reason")
         record["noise_score"] = result.analysis.get("noise_score")
         record["ai_artifact_score"] = result.analysis.get("ai_artifact_score")
@@ -128,7 +229,9 @@ def _run_case(case: RegressionCase) -> dict[str, object]:
         record["ai_pixel_v2_score"] = result.analysis.get("ai_pixel_v2_score")
         record["unique_color_count"] = result.analysis.get("unique_color_count")
         record["estimated_palette_size"] = result.analysis.get("estimated_palette_size")
-        record["near_duplicate_color_ratio"] = result.analysis.get("near_duplicate_color_ratio")
+        record["near_duplicate_color_ratio"] = result.analysis.get(
+            "near_duplicate_color_ratio"
+        )
 
     if result.palette is not None:
         record["palette_cleanup_applied"] = result.palette.get("cleanup_applied")
@@ -137,13 +240,17 @@ def _run_case(case: RegressionCase) -> dict[str, object]:
 
     if result.reconstruction is not None:
         record["artifact_cleanup"] = result.reconstruction.get("artifact_cleanup")
-        record["isolated_pixels_replaced"] = result.reconstruction.get("isolated_pixels_replaced")
+        record["isolated_pixels_replaced"] = result.reconstruction.get(
+            "isolated_pixels_replaced"
+        )
 
     if case.reference_name is not None:
         reference = Image.open(FIXTURES / case.reference_name).convert("RGBA")
         restored = result.image.convert("RGBA")
         if restored.size == reference.size:
-            record["mae"] = round(_mean_absolute_error(np.asarray(restored), np.asarray(reference)), 3)
+            record["mae"] = round(
+                _mean_absolute_error(np.asarray(restored), np.asarray(reference)), 3
+            )
 
     return record
 

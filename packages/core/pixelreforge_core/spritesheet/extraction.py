@@ -5,7 +5,12 @@ import numpy as np
 from PIL import Image
 
 from ..models import CancelCallback, ProcessingCancelled
-from .models import SheetExtractionSettings, SpriteFrame, SpriteSheetError, SpriteSheetSettings
+from .models import (
+    SheetExtractionSettings,
+    SpriteFrame,
+    SpriteSheetError,
+    SpriteSheetSettings,
+)
 
 
 def extract_sprites_from_sheet(
@@ -23,7 +28,9 @@ def extract_sprites_from_sheet(
     else:
         frames = _extract_connected_regions(rgba, settings, name_prefix, cancel)
     if not frames:
-        raise SpriteSheetError("No non-transparent sprites were found in the uploaded sheet.")
+        raise SpriteSheetError(
+            "No non-transparent sprites were found in the uploaded sheet."
+        )
     return frames
 
 
@@ -47,11 +54,15 @@ def frames_from_images(
     for index, (image, name) in enumerate(zip(images, unique_names, strict=True)):
         _check_cancel(cancel)
         rgba = image.convert("RGBA")
-        frame, was_empty = _trim_frame(rgba, name, settings.trim_transparent, settings.alpha_threshold, cancel)
+        frame, was_empty = _trim_frame(
+            rgba, name, settings.trim_transparent, settings.alpha_threshold, cancel
+        )
         frames.append(frame)
         _check_cancel(cancel)
         if was_empty:
-            warnings.append(f"Sprite '{name}' is fully transparent and was kept as a 1 x 1 frame.")
+            warnings.append(
+                f"Sprite '{name}' is fully transparent and was kept as a 1 x 1 frame."
+            )
     return frames, tuple(warnings)
 
 
@@ -88,12 +99,18 @@ def _extract_grid(
 ) -> list[SpriteFrame]:
     assert settings.cell_width is not None
     assert settings.cell_height is not None
-    available_columns = _available_cells(image.width, settings.offset_x, settings.cell_width, settings.gap_x)
-    available_rows = _available_cells(image.height, settings.offset_y, settings.cell_height, settings.gap_y)
+    available_columns = _available_cells(
+        image.width, settings.offset_x, settings.cell_width, settings.gap_x
+    )
+    available_rows = _available_cells(
+        image.height, settings.offset_y, settings.cell_height, settings.gap_y
+    )
     columns = settings.columns or available_columns
     rows = settings.rows or available_rows
     if columns > available_columns or rows > available_rows:
-        raise SpriteSheetError("The configured grid extends outside the uploaded sheet.")
+        raise SpriteSheetError(
+            "The configured grid extends outside the uploaded sheet."
+        )
     if columns * rows > settings.max_frames:
         raise SpriteSheetError("Sheet extraction exceeds the maximum frame count.")
 
@@ -165,7 +182,9 @@ def _connected_bounds(
                             stack.append((next_x, next_y))
             bounds.append((min_x, min_y, max_x + 1, max_y + 1))
             if len(bounds) > max_frames:
-                raise SpriteSheetError("Sheet extraction exceeds the maximum frame count.")
+                raise SpriteSheetError(
+                    "Sheet extraction exceeds the maximum frame count."
+                )
     return sorted(bounds, key=lambda value: (value[1], value[0]))
 
 
@@ -178,7 +197,9 @@ def _trim_frame(
 ) -> tuple[SpriteFrame, bool]:
     source_width, source_height = image.size
     if not trim:
-        return SpriteFrame(name, image, image.size, (0, 0, source_width, source_height), False), False
+        return SpriteFrame(
+            name, image, image.size, (0, 0, source_width, source_height), False
+        ), False
 
     _check_cancel(cancel)
     alpha = np.asarray(image.getchannel("A"), dtype=np.uint8)
@@ -195,7 +216,9 @@ def _trim_frame(
     right = int(occupied_columns[-1]) + 1
     source_rect = (int(left), int(top), int(right - left), int(bottom - top))
     trimmed = source_rect != (0, 0, source_width, source_height)
-    return SpriteFrame(name, image.crop((left, top, right, bottom)), image.size, source_rect, trimmed), False
+    return SpriteFrame(
+        name, image.crop((left, top, right, bottom)), image.size, source_rect, trimmed
+    ), False
 
 
 def _unique_names(names: Sequence[str]) -> list[str]:

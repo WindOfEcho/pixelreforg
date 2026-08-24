@@ -7,7 +7,14 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 JobStatus = Literal["queued", "processing", "completed", "failed", "cancelled"]
 JobType = Literal["restore", "sprite_sheet"]
 ScaleMode = Literal["auto", "manual"]
-RestoreAlgorithm = Literal["auto", "integer-grid-v1", "resampled-grid-v2", "noisy-pixel-v1", "ai-pixel-v2", "ai-grid-hypothesis-v1"]
+RestoreAlgorithm = Literal[
+    "auto",
+    "integer-grid-v1",
+    "resampled-grid-v2",
+    "noisy-pixel-v1",
+    "ai-pixel-v2",
+    "ai-grid-hypothesis-v1",
+]
 PaletteCleanupMode = Literal["off", "light", "medium", "strong", "custom"]
 SpriteSheetInputMode = Literal["files", "sheet"]
 SpriteSheetPackingMode = Literal["compact", "grid"]
@@ -82,16 +89,31 @@ class SpriteSheetParameters(BaseModel):
             raise ValueError("atlas_width and atlas_height must be supplied together.")
         if self.atlas_width is not None and self.atlas_height is not None:
             if self.atlas_width > self.max_width or self.atlas_height > self.max_height:
-                raise ValueError("Fixed atlas dimensions cannot exceed the maximum dimensions.")
+                raise ValueError(
+                    "Fixed atlas dimensions cannot exceed the maximum dimensions."
+                )
             if self.force_square and self.atlas_width != self.atlas_height:
                 raise ValueError("Square output requires equal fixed atlas dimensions.")
-            if self.power_of_two and (not _is_power_of_two(self.atlas_width) or not _is_power_of_two(self.atlas_height)):
-                raise ValueError("Power-of-two output requires power-of-two fixed dimensions.")
+            if self.power_of_two and (
+                not _is_power_of_two(self.atlas_width)
+                or not _is_power_of_two(self.atlas_height)
+            ):
+                raise ValueError(
+                    "Power-of-two output requires power-of-two fixed dimensions."
+                )
         if self.input_mode == "sheet" and self.extraction_mode == "grid":
             if self.cell_width is None or self.cell_height is None:
-                raise ValueError("Grid sheet extraction requires cell_width and cell_height.")
-            if self.columns is not None and self.rows is not None and self.columns * self.rows > self.max_frames:
-                raise ValueError("Configured sheet grid exceeds the maximum frame count.")
+                raise ValueError(
+                    "Grid sheet extraction requires cell_width and cell_height."
+                )
+            if (
+                self.columns is not None
+                and self.rows is not None
+                and self.columns * self.rows > self.max_frames
+            ):
+                raise ValueError(
+                    "Configured sheet grid exceeds the maximum frame count."
+                )
         return self
 
 

@@ -54,7 +54,10 @@ class SpriteSheetSettings:
         ):
             if value < 0:
                 raise SpriteSheetError(f"{name} must not be negative.")
-        for name, value in (("max_width", self.max_width), ("max_height", self.max_height)):
+        for name, value in (
+            ("max_width", self.max_width),
+            ("max_height", self.max_height),
+        ):
             if value < 1:
                 raise SpriteSheetError(f"{name} must be at least 1.")
         if self.max_pixels < 1:
@@ -65,11 +68,17 @@ class SpriteSheetSettings:
             if self.atlas_width < 1 or self.atlas_height < 1:
                 raise SpriteSheetError("Fixed atlas dimensions must be positive.")
             if self.atlas_width > self.max_width or self.atlas_height > self.max_height:
-                raise SpriteSheetError("Fixed atlas dimensions exceed the configured limits.")
+                raise SpriteSheetError(
+                    "Fixed atlas dimensions exceed the configured limits."
+                )
         if self.grid_columns is not None and self.grid_columns < 1:
             raise SpriteSheetError("grid_columns must be at least 1.")
-        if self.background_color is not None and any(channel < 0 or channel > 255 for channel in self.background_color):
-            raise SpriteSheetError("background_color channels must be between 0 and 255.")
+        if self.background_color is not None and any(
+            channel < 0 or channel > 255 for channel in self.background_color
+        ):
+            raise SpriteSheetError(
+                "background_color channels must be between 0 and 255."
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -95,7 +104,12 @@ class SheetExtractionSettings:
             raise SpriteSheetError("alpha_threshold must be between 0 and 255.")
         if self.max_frames < 1:
             raise SpriteSheetError("max_frames must be at least 1.")
-        for name, value in (("offset_x", self.offset_x), ("offset_y", self.offset_y), ("gap_x", self.gap_x), ("gap_y", self.gap_y)):
+        for name, value in (
+            ("offset_x", self.offset_x),
+            ("offset_y", self.offset_y),
+            ("gap_x", self.gap_x),
+            ("gap_y", self.gap_y),
+        ):
             if value < 0:
                 raise SpriteSheetError(f"{name} must not be negative.")
         for name, value in (("columns", self.columns), ("rows", self.rows)):
@@ -103,7 +117,9 @@ class SheetExtractionSettings:
                 raise SpriteSheetError(f"{name} must be at least 1 when supplied.")
         if self.mode == "grid":
             if self.cell_width is None or self.cell_height is None:
-                raise SpriteSheetError("Grid extraction requires cell_width and cell_height.")
+                raise SpriteSheetError(
+                    "Grid extraction requires cell_width and cell_height."
+                )
             if self.cell_width < 1 or self.cell_height < 1:
                 raise SpriteSheetError("Grid cell dimensions must be positive.")
 

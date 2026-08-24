@@ -13,14 +13,20 @@ ORIGINAL_FIXTURE = "test-original-32x32px.png"
 
 
 class CorePaletteTests(unittest.TestCase):
-    def test_palette_cleanup_off_keeps_pixels_unchanged_and_records_metadata(self) -> None:
-        image = Image.open(ROOT / "tests" / "fixtures" / ORIGINAL_FIXTURE).convert("RGBA")
+    def test_palette_cleanup_off_keeps_pixels_unchanged_and_records_metadata(
+        self,
+    ) -> None:
+        image = Image.open(ROOT / "tests" / "fixtures" / ORIGINAL_FIXTURE).convert(
+            "RGBA"
+        )
 
         result = restore_palette(image, "off")
 
         np.testing.assert_array_equal(np.asarray(image), np.asarray(result.image))
         self.assertFalse(result.metadata["cleanup_applied"])
-        self.assertEqual(result.metadata["color_count_before"], result.metadata["color_count_after"])
+        self.assertEqual(
+            result.metadata["color_count_before"], result.metadata["color_count_after"]
+        )
         self.assertTrue(result.metadata["top_colors_before"])
 
     def test_palette_cleanup_merges_near_duplicate_colors(self) -> None:
@@ -37,7 +43,9 @@ class CorePaletteTests(unittest.TestCase):
         cleaned_unique = np.unique(np.asarray(result.image).reshape(-1, 3), axis=0)
 
         self.assertTrue(result.metadata["cleanup_applied"])
-        self.assertLess(cleaned_unique.shape[0], np.unique(data.reshape(-1, 3), axis=0).shape[0])
+        self.assertLess(
+            cleaned_unique.shape[0], np.unique(data.reshape(-1, 3), axis=0).shape[0]
+        )
         self.assertGreater(result.metadata["colors_merged"], 0)
 
     def test_palette_cleanup_preserves_distinct_alpha_values(self) -> None:
@@ -51,7 +59,9 @@ class CorePaletteTests(unittest.TestCase):
         image = Image.fromarray(data, mode="RGBA")
 
         result = restore_palette(image, "strong")
-        alpha_values = set(int(value) for value in np.asarray(result.image)[:, :, 3].reshape(-1))
+        alpha_values = set(
+            int(value) for value in np.asarray(result.image)[:, :, 3].reshape(-1)
+        )
 
         self.assertEqual({30, 255}, alpha_values)
         self.assertEqual("RGBA", result.image.mode)
@@ -59,11 +69,29 @@ class CorePaletteTests(unittest.TestCase):
     @pytest.mark.regression
     def test_jpeg_palette_cleanup_reduces_restored_color_count(self) -> None:
         image = Image.open(ROOT / "tests" / "fixtures" / "test-jpegs-x4-60.jpg")
-        off = process_image(image, RestoreSettings(scale_mode="manual", manual_scale_x=4, manual_scale_y=4, palette_cleanup="off"))
+        off = process_image(
+            image,
+            RestoreSettings(
+                scale_mode="manual",
+                manual_scale_x=4,
+                manual_scale_y=4,
+                palette_cleanup="off",
+            ),
+        )
         image = Image.open(ROOT / "tests" / "fixtures" / "test-jpegs-x4-60.jpg")
-        cleaned = process_image(image, RestoreSettings(scale_mode="manual", manual_scale_x=4, manual_scale_y=4, palette_cleanup="medium"))
+        cleaned = process_image(
+            image,
+            RestoreSettings(
+                scale_mode="manual",
+                manual_scale_x=4,
+                manual_scale_y=4,
+                palette_cleanup="medium",
+            ),
+        )
 
-        self.assertLessEqual(cleaned.palette["color_count_after"], off.palette["color_count_after"])
+        self.assertLessEqual(
+            cleaned.palette["color_count_after"], off.palette["color_count_after"]
+        )
         self.assertTrue(cleaned.palette["cleanup_applied"])
 
     def test_palette_target_colors_only_applies_to_custom_cleanup(self) -> None:

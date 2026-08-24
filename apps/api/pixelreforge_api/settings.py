@@ -74,8 +74,13 @@ def load_settings() -> ApiSettings:
     log_format = os.getenv("PIXELREFORGE_LOG_FORMAT", default_format).strip().lower()
     if log_format not in VALID_LOG_FORMATS:
         log_format = default_format
-    sentry_traces_sample_rate = _read_float("PIXELREFORGE_SENTRY_TRACES_SAMPLE_RATE", default=0.0)
-    database_url = os.getenv("PIXELREFORGE_DATABASE_URL") or f"sqlite:///{root / 'runtime' / 'pixelreforge.sqlite3'}"
+    sentry_traces_sample_rate = _read_float(
+        "PIXELREFORGE_SENTRY_TRACES_SAMPLE_RATE", default=0.0
+    )
+    database_url = (
+        os.getenv("PIXELREFORGE_DATABASE_URL")
+        or f"sqlite:///{root / 'runtime' / 'pixelreforge.sqlite3'}"
+    )
     session_secret = _read_session_secret(env)
 
     return ApiSettings(
@@ -85,31 +90,70 @@ def load_settings() -> ApiSettings:
         log_format=log_format,
         sentry_dsn=os.getenv("PIXELREFORGE_SENTRY_DSN") or None,
         sentry_traces_sample_rate=sentry_traces_sample_rate,
-        cors_origins=_read_csv("PIXELREFORGE_CORS_ORIGINS", default=DEFAULT_CORS_ORIGINS),
+        cors_origins=_read_csv(
+            "PIXELREFORGE_CORS_ORIGINS", default=DEFAULT_CORS_ORIGINS
+        ),
         root=root,
         database_url=database_url,
-        job_max_attempts=_read_int("PIXELREFORGE_JOB_MAX_ATTEMPTS", default=3, minimum=1),
-        job_timeout_seconds=_read_int("PIXELREFORGE_JOB_TIMEOUT_SECONDS", default=30 * 60, minimum=1),
-        job_ttl_seconds=_read_int("PIXELREFORGE_JOB_TTL_SECONDS", default=24 * 60 * 60, minimum=1),
-        worker_concurrency=_read_int("PIXELREFORGE_WORKER_CONCURRENCY", default=1, minimum=1),
-        worker_poll_interval_seconds=_read_float("PIXELREFORGE_WORKER_POLL_INTERVAL_SECONDS", default=1.0, minimum=0.05),
-        worker_heartbeat_interval_seconds=_read_float("PIXELREFORGE_WORKER_HEARTBEAT_INTERVAL_SECONDS", default=10.0, minimum=0.5),
+        job_max_attempts=_read_int(
+            "PIXELREFORGE_JOB_MAX_ATTEMPTS", default=3, minimum=1
+        ),
+        job_timeout_seconds=_read_int(
+            "PIXELREFORGE_JOB_TIMEOUT_SECONDS", default=30 * 60, minimum=1
+        ),
+        job_ttl_seconds=_read_int(
+            "PIXELREFORGE_JOB_TTL_SECONDS", default=24 * 60 * 60, minimum=1
+        ),
+        worker_concurrency=_read_int(
+            "PIXELREFORGE_WORKER_CONCURRENCY", default=1, minimum=1
+        ),
+        worker_poll_interval_seconds=_read_float(
+            "PIXELREFORGE_WORKER_POLL_INTERVAL_SECONDS", default=1.0, minimum=0.05
+        ),
+        worker_heartbeat_interval_seconds=_read_float(
+            "PIXELREFORGE_WORKER_HEARTBEAT_INTERVAL_SECONDS", default=10.0, minimum=0.5
+        ),
         worker_id=os.getenv("PIXELREFORGE_WORKER_ID", "default").strip() or "default",
         session_secret=session_secret,
-        session_cookie_name=os.getenv("PIXELREFORGE_SESSION_COOKIE_NAME", DEFAULT_SESSION_COOKIE_NAME).strip() or DEFAULT_SESSION_COOKIE_NAME,
+        session_cookie_name=os.getenv(
+            "PIXELREFORGE_SESSION_COOKIE_NAME", DEFAULT_SESSION_COOKIE_NAME
+        ).strip()
+        or DEFAULT_SESSION_COOKIE_NAME,
         session_max_age_seconds=_read_int(
             "PIXELREFORGE_SESSION_MAX_AGE_SECONDS",
             default=DEFAULT_SESSION_MAX_AGE_SECONDS,
             minimum=60,
         ),
-        sprite_sheet_max_files=_read_int("PIXELREFORGE_SPRITE_SHEET_MAX_FILES", default=128, minimum=1),
-        sprite_sheet_max_frames=_read_int("PIXELREFORGE_SPRITE_SHEET_MAX_FRAMES", default=4096, minimum=1),
-        sprite_sheet_max_file_bytes=_read_int("PIXELREFORGE_SPRITE_SHEET_MAX_FILE_BYTES", default=16 * 1024 * 1024, minimum=1),
-        sprite_sheet_max_total_bytes=_read_int("PIXELREFORGE_SPRITE_SHEET_MAX_TOTAL_BYTES", default=64 * 1024 * 1024, minimum=1),
-        sprite_sheet_max_pixels=_read_int("PIXELREFORGE_SPRITE_SHEET_MAX_PIXELS", default=8_000_000, minimum=1),
-        sprite_sheet_max_total_pixels=_read_int("PIXELREFORGE_SPRITE_SHEET_MAX_TOTAL_PIXELS", default=8_000_000, minimum=1),
-        sprite_sheet_max_atlas_pixels=_read_int("PIXELREFORGE_SPRITE_SHEET_MAX_ATLAS_PIXELS", default=16_000_000, minimum=1),
-        sprite_sheet_max_request_bytes=_read_int("PIXELREFORGE_SPRITE_SHEET_MAX_REQUEST_BYTES", default=70 * 1024 * 1024, minimum=1),
+        sprite_sheet_max_files=_read_int(
+            "PIXELREFORGE_SPRITE_SHEET_MAX_FILES", default=128, minimum=1
+        ),
+        sprite_sheet_max_frames=_read_int(
+            "PIXELREFORGE_SPRITE_SHEET_MAX_FRAMES", default=4096, minimum=1
+        ),
+        sprite_sheet_max_file_bytes=_read_int(
+            "PIXELREFORGE_SPRITE_SHEET_MAX_FILE_BYTES",
+            default=16 * 1024 * 1024,
+            minimum=1,
+        ),
+        sprite_sheet_max_total_bytes=_read_int(
+            "PIXELREFORGE_SPRITE_SHEET_MAX_TOTAL_BYTES",
+            default=64 * 1024 * 1024,
+            minimum=1,
+        ),
+        sprite_sheet_max_pixels=_read_int(
+            "PIXELREFORGE_SPRITE_SHEET_MAX_PIXELS", default=8_000_000, minimum=1
+        ),
+        sprite_sheet_max_total_pixels=_read_int(
+            "PIXELREFORGE_SPRITE_SHEET_MAX_TOTAL_PIXELS", default=8_000_000, minimum=1
+        ),
+        sprite_sheet_max_atlas_pixels=_read_int(
+            "PIXELREFORGE_SPRITE_SHEET_MAX_ATLAS_PIXELS", default=16_000_000, minimum=1
+        ),
+        sprite_sheet_max_request_bytes=_read_int(
+            "PIXELREFORGE_SPRITE_SHEET_MAX_REQUEST_BYTES",
+            default=70 * 1024 * 1024,
+            minimum=1,
+        ),
     )
 
 

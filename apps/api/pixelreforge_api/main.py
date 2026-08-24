@@ -12,18 +12,39 @@ from pydantic import ValidationError
 from .job_store import JobStore, create_job_store
 from .logging_config import configure_logging
 from .logging_context import reset_request_id, set_request_id
-from .models import JobCreateResponse, JobListResponse, JobMetadata, JobParameters, JobPublicMetadata, PaletteCleanupMode, RestoreAlgorithm, ScaleMode, SheetExtractionMode, SpriteSheetInputMode, SpriteSheetPackingMode, SpriteSheetParameters, SpriteSheetSortMode
+from .models import (
+    JobCreateResponse,
+    JobListResponse,
+    JobMetadata,
+    JobParameters,
+    JobPublicMetadata,
+    PaletteCleanupMode,
+    RestoreAlgorithm,
+    ScaleMode,
+    SheetExtractionMode,
+    SpriteSheetInputMode,
+    SpriteSheetPackingMode,
+    SpriteSheetParameters,
+    SpriteSheetSortMode,
+)
 from .processing import output_file_path
 from .sentry_config import configure_sentry
 from .session import resolve_anonymous_session
 from .settings import ApiSettings, load_settings
-from .storage import delete_job_files, metadata_file_path_for_job, save_job_input, save_job_inputs
+from .storage import (
+    delete_job_files,
+    metadata_file_path_for_job,
+    save_job_input,
+    save_job_inputs,
+)
 
 
 logger = logging.getLogger(__name__)
 
 
-def create_app(settings: ApiSettings | None = None, job_store: JobStore | None = None) -> FastAPI:
+def create_app(
+    settings: ApiSettings | None = None, job_store: JobStore | None = None
+) -> FastAPI:
     settings = settings or load_settings()
     if settings.is_production and not settings.session_secret:
         raise ValueError("PIXELREFORGE_SESSION_SECRET is required in production.")
@@ -52,7 +73,10 @@ def create_app(settings: ApiSettings | None = None, job_store: JobStore | None =
 
     @api.middleware("http")
     async def sprite_sheet_request_limit_middleware(request: Request, call_next):  # type: ignore[no-untyped-def]
-        if request.method == "POST" and request.url.path in {"/api/sprite-sheets", "/api/sprite-sheets/"}:
+        if request.method == "POST" and request.url.path in {
+            "/api/sprite-sheets",
+            "/api/sprite-sheets/",
+        }:
             content_length = request.headers.get("content-length")
             if content_length is not None:
                 try:
@@ -141,7 +165,12 @@ def create_app(settings: ApiSettings | None = None, job_store: JobStore | None =
         offset: int = Query(default=0, ge=0),
     ) -> JobListResponse:
         owner_id = _session_id_from_request(request)
-        jobs = [_public_job(metadata) for metadata in job_store.list_jobs(limit=limit, offset=offset, owner_id=owner_id)]
+        jobs = [
+            _public_job(metadata)
+            for metadata in job_store.list_jobs(
+                limit=limit, offset=offset, owner_id=owner_id
+            )
+        ]
         return JobListResponse(jobs=jobs, limit=limit, offset=offset)
 
     @api.post("/api/jobs", response_model=JobCreateResponse, status_code=202)
@@ -163,11 +192,18 @@ def create_app(settings: ApiSettings | None = None, job_store: JobStore | None =
         fractional_scale_step: float = Query(default=0.25, ge=0.05, le=1.0),
     ) -> JobCreateResponse:
         if file.content_type is not None and not file.content_type.startswith("image/"):
-            raise HTTPException(status_code=415, detail="Only image uploads are supported.")
+            raise HTTPException(
+                status_code=415, detail="Only image uploads are supported."
+            )
         if min_scale > max_scale:
-            raise HTTPException(status_code=422, detail="min_scale must be less than or equal to max_scale.")
+            raise HTTPException(
+                status_code=422,
+                detail="min_scale must be less than or equal to max_scale.",
+            )
         if scale_mode == "manual" and scale is None:
-            raise HTTPException(status_code=422, detail="Manual scale mode requires scale.")
+            raise HTTPException(
+                status_code=422, detail="Manual scale mode requires scale."
+            )
 
         params = JobParameters(
             algorithm=algorithm,
@@ -215,7 +251,12 @@ def create_app(settings: ApiSettings | None = None, job_store: JobStore | None =
             raise
         logger.info(
             "Job created.",
-            extra={"event": "job_created", "job_id": metadata.job_id, "status": metadata.status, "input_filename": input_filename},
+            extra={
+                "event": "job_created",
+                "job_id": metadata.job_id,
+                "status": metadata.status,
+                "input_filename": input_filename,
+            },
         )
         return JobCreateResponse(
             job_id=metadata.job_id,
@@ -327,7 +368,11 @@ def create_app(settings: ApiSettings | None = None, job_store: JobStore | None =
             raise
         logger.info(
             "Sprite-sheet job created.",
-            extra={"event": "sprite_sheet_job_created", "job_id": metadata.job_id, "input_count": len(input_filenames)},
+            extra={
+                "event": "sprite_sheet_job_created",
+                "job_id": metadata.job_id,
+                "input_count": len(input_filenames),
+            },
         )
         return JobCreateResponse(
             job_id=metadata.job_id,
@@ -338,48 +383,76 @@ def create_app(settings: ApiSettings | None = None, job_store: JobStore | None =
 
     @api.get("/api/jobs/{job_id}", response_model=JobPublicMetadata)
     def get_processing_job(job_id: str, request: Request) -> JobPublicMetadata:
-        metadata = _owned_job_or_404(job_store, job_id, _session_id_from_request(request))
+        metadata = _owned_job_or_404(
+            job_store, job_id, _session_id_from_request(request)
+        )
         return _public_job(metadata)
 
     @api.get("/api/sprite-sheets/{job_id}", response_model=JobPublicMetadata)
     def get_sprite_sheet_job(job_id: str, request: Request) -> JobPublicMetadata:
-        metadata = _owned_sprite_sheet_job_or_404(job_store, job_id, _session_id_from_request(request))
+        metadata = _owned_sprite_sheet_job_or_404(
+            job_store, job_id, _session_id_from_request(request)
+        )
         return _public_job(metadata)
 
     @api.get("/api/jobs/{job_id}/download")
     def download_processing_result(job_id: str, request: Request) -> FileResponse:
-        metadata = _owned_job_or_404(job_store, job_id, _session_id_from_request(request))
+        metadata = _owned_job_or_404(
+            job_store, job_id, _session_id_from_request(request)
+        )
         if metadata.status != "completed":
             raise HTTPException(status_code=409, detail="Job is not completed.")
 
         output_path = output_file_path(metadata)
         if output_path is None or not output_path.exists():
             raise HTTPException(status_code=404, detail="Output file not found.")
-        filename = "pixelreforge-sprite-sheet.png" if metadata.job_type == "sprite_sheet" else "pixelreforge-result.png"
+        filename = (
+            "pixelreforge-sprite-sheet.png"
+            if metadata.job_type == "sprite_sheet"
+            else "pixelreforge-result.png"
+        )
         return FileResponse(output_path, media_type="image/png", filename=filename)
 
     @api.get("/api/sprite-sheets/{job_id}/download")
     def download_sprite_sheet_result(job_id: str, request: Request) -> FileResponse:
-        metadata = _owned_sprite_sheet_job_or_404(job_store, job_id, _session_id_from_request(request))
+        metadata = _owned_sprite_sheet_job_or_404(
+            job_store, job_id, _session_id_from_request(request)
+        )
         if metadata.status != "completed":
-            raise HTTPException(status_code=409, detail="Sprite-sheet job is not completed.")
+            raise HTTPException(
+                status_code=409, detail="Sprite-sheet job is not completed."
+            )
         output_path = output_file_path(metadata)
         if output_path is None or not output_path.exists():
             raise HTTPException(status_code=404, detail="Output file not found.")
-        return FileResponse(output_path, media_type="image/png", filename="pixelreforge-sprite-sheet.png")
+        return FileResponse(
+            output_path,
+            media_type="image/png",
+            filename="pixelreforge-sprite-sheet.png",
+        )
 
     @api.get("/api/sprite-sheets/{job_id}/metadata")
     def download_sprite_sheet_metadata(job_id: str, request: Request) -> FileResponse:
-        metadata = _owned_sprite_sheet_job_or_404(job_store, job_id, _session_id_from_request(request))
+        metadata = _owned_sprite_sheet_job_or_404(
+            job_store, job_id, _session_id_from_request(request)
+        )
         if metadata.status != "completed":
-            raise HTTPException(status_code=409, detail="Sprite-sheet job is not completed.")
+            raise HTTPException(
+                status_code=409, detail="Sprite-sheet job is not completed."
+            )
         params = SpriteSheetParameters.model_validate(metadata.params)
         if not params.include_metadata:
-            raise HTTPException(status_code=404, detail="Metadata export was not requested.")
+            raise HTTPException(
+                status_code=404, detail="Metadata export was not requested."
+            )
         metadata_path = metadata_file_path_for_job(job_id)
         if not metadata_path.exists():
             raise HTTPException(status_code=404, detail="Metadata file not found.")
-        return FileResponse(metadata_path, media_type="application/json", filename="pixelreforge-sprite-sheet.json")
+        return FileResponse(
+            metadata_path,
+            media_type="application/json",
+            filename="pixelreforge-sprite-sheet.json",
+        )
 
     @api.post("/api/jobs/{job_id}/cancel", response_model=JobPublicMetadata)
     def cancel_processing_job(job_id: str, request: Request) -> JobPublicMetadata:
@@ -396,7 +469,9 @@ def create_app(settings: ApiSettings | None = None, job_store: JobStore | None =
     return api
 
 
-def _cancel_job(job_store: JobStore, metadata: JobMetadata, owner_id: str) -> JobPublicMetadata:
+def _cancel_job(
+    job_store: JobStore, metadata: JobMetadata, owner_id: str
+) -> JobPublicMetadata:
     if metadata.status in ("completed", "failed", "cancelled"):
         return _public_job(metadata)
 
@@ -405,7 +480,11 @@ def _cancel_job(job_store: JobStore, metadata: JobMetadata, owner_id: str) -> Jo
             current.cancel_requested = True
             current.status = "cancelled"
             current.stage = "cancelled"
-            current.stage_message = "Sprite-sheet creation cancelled." if current.job_type == "sprite_sheet" else "Restoration cancelled."
+            current.stage_message = (
+                "Sprite-sheet creation cancelled."
+                if current.job_type == "sprite_sheet"
+                else "Restoration cancelled."
+            )
             current.error = None
             current.started_at = None
             current.heartbeat_at = None
@@ -415,7 +494,14 @@ def _cancel_job(job_store: JobStore, metadata: JobMetadata, owner_id: str) -> Jo
     updated_metadata = job_store.update_job(metadata.job_id, mark_cancelled)
     if updated_metadata is None or updated_metadata.owner_id != owner_id:
         raise HTTPException(status_code=404, detail="Job not found.")
-    logger.info("Job cancelled.", extra={"event": "job_cancelled", "job_id": metadata.job_id, "status": updated_metadata.status})
+    logger.info(
+        "Job cancelled.",
+        extra={
+            "event": "job_cancelled",
+            "job_id": metadata.job_id,
+            "status": updated_metadata.status,
+        },
+    )
     return _public_job(updated_metadata)
 
 
@@ -433,7 +519,9 @@ def _owned_job_or_404(job_store: JobStore, job_id: str, owner_id: str) -> JobMet
     return metadata
 
 
-def _owned_sprite_sheet_job_or_404(job_store: JobStore, job_id: str, owner_id: str) -> JobMetadata:
+def _owned_sprite_sheet_job_or_404(
+    job_store: JobStore, job_id: str, owner_id: str
+) -> JobMetadata:
     metadata = _owned_job_or_404(job_store, job_id, owner_id)
     if metadata.job_type != "sprite_sheet":
         raise HTTPException(status_code=404, detail="Sprite-sheet job not found.")
@@ -444,47 +532,80 @@ def _public_job(metadata: JobMetadata) -> JobPublicMetadata:
     return JobPublicMetadata.model_validate(metadata.model_dump())
 
 
-def _validate_sprite_sheet_uploads(files: list[UploadFile], params: SpriteSheetParameters, settings: ApiSettings) -> None:
+def _validate_sprite_sheet_uploads(
+    files: list[UploadFile], params: SpriteSheetParameters, settings: ApiSettings
+) -> None:
     if not files:
-        raise HTTPException(status_code=422, detail="At least one sprite image is required.")
+        raise HTTPException(
+            status_code=422, detail="At least one sprite image is required."
+        )
     if len(files) > settings.sprite_sheet_max_files:
-        raise HTTPException(status_code=422, detail=f"A maximum of {settings.sprite_sheet_max_files} sprite images can be uploaded.")
+        raise HTTPException(
+            status_code=422,
+            detail=f"A maximum of {settings.sprite_sheet_max_files} sprite images can be uploaded.",
+        )
     if params.input_mode == "sheet" and len(files) != 1:
-        raise HTTPException(status_code=422, detail="Sheet mode requires exactly one image.")
+        raise HTTPException(
+            status_code=422, detail="Sheet mode requires exactly one image."
+        )
     if params.atlas_width is not None and params.atlas_height is not None:
-        if params.atlas_width * params.atlas_height > settings.sprite_sheet_max_atlas_pixels:
-            raise HTTPException(status_code=422, detail="Fixed atlas dimensions exceed the atlas pixel limit.")
+        if (
+            params.atlas_width * params.atlas_height
+            > settings.sprite_sheet_max_atlas_pixels
+        ):
+            raise HTTPException(
+                status_code=422,
+                detail="Fixed atlas dimensions exceed the atlas pixel limit.",
+            )
     total_bytes = 0
     total_pixels = 0
     for file in files:
         if file.content_type is not None and not file.content_type.startswith("image/"):
-            raise HTTPException(status_code=415, detail="Only PNG, JPEG, GIF, and WebP images are supported.")
+            raise HTTPException(
+                status_code=415,
+                detail="Only PNG, JPEG, GIF, and WebP images are supported.",
+            )
         if file.size is not None:
             if file.size > settings.sprite_sheet_max_file_bytes:
-                raise HTTPException(status_code=413, detail="An uploaded sprite exceeds the per-file size limit.")
+                raise HTTPException(
+                    status_code=413,
+                    detail="An uploaded sprite exceeds the per-file size limit.",
+                )
             total_bytes += file.size
         total_pixels += _validate_sprite_image(file, settings)
     if total_bytes > settings.sprite_sheet_max_total_bytes:
-        raise HTTPException(status_code=413, detail="Uploaded sprites exceed the total size limit.")
+        raise HTTPException(
+            status_code=413, detail="Uploaded sprites exceed the total size limit."
+        )
     if total_pixels > settings.sprite_sheet_max_total_pixels:
-        raise HTTPException(status_code=413, detail="Uploaded sprites exceed the total pixel limit.")
+        raise HTTPException(
+            status_code=413, detail="Uploaded sprites exceed the total pixel limit."
+        )
 
 
 def _validate_sprite_image(file: UploadFile, settings: ApiSettings) -> int:
     try:
         with Image.open(file.file) as image:
             if image.format not in {"PNG", "JPEG", "GIF", "WEBP"}:
-                raise HTTPException(status_code=415, detail="Only PNG, JPEG, GIF, and WebP images are supported.")
+                raise HTTPException(
+                    status_code=415,
+                    detail="Only PNG, JPEG, GIF, and WebP images are supported.",
+                )
             width, height = image.size
             pixels = width * height
             if pixels > settings.sprite_sheet_max_pixels:
-                raise HTTPException(status_code=413, detail="An uploaded sprite exceeds the pixel limit.")
+                raise HTTPException(
+                    status_code=413,
+                    detail="An uploaded sprite exceeds the pixel limit.",
+                )
             image.verify()
             return pixels
     except HTTPException:
         raise
     except (Image.DecompressionBombError, UnidentifiedImageError, OSError) as exc:
-        raise HTTPException(status_code=422, detail="An uploaded file is not a valid image.") from exc
+        raise HTTPException(
+            status_code=422, detail="An uploaded file is not a valid image."
+        ) from exc
     finally:
         file.file.seek(0)
 
@@ -493,11 +614,21 @@ def _build_sprite_sheet_parameters(**values: object) -> SpriteSheetParameters:
     try:
         return SpriteSheetParameters.model_validate(values)
     except ValidationError as exc:
-        raise HTTPException(status_code=422, detail=exc.errors(include_url=False, include_context=False, include_input=False)) from exc
+        raise HTTPException(
+            status_code=422,
+            detail=exc.errors(
+                include_url=False, include_context=False, include_input=False
+            ),
+        ) from exc
 
 
-def _sprite_sheet_limit_response(request: Request, settings: ApiSettings) -> JSONResponse:
-    response = JSONResponse(status_code=413, content={"detail": "Sprite-sheet upload exceeds the request size limit."})
+def _sprite_sheet_limit_response(
+    request: Request, settings: ApiSettings
+) -> JSONResponse:
+    response = JSONResponse(
+        status_code=413,
+        content={"detail": "Sprite-sheet upload exceeds the request size limit."},
+    )
     origin = request.headers.get("origin")
     if origin in settings.cors_origins:
         response.headers["Access-Control-Allow-Origin"] = origin

@@ -21,7 +21,10 @@ def process_job(job_id: str, store: JobStore, request_id: str | None = None) -> 
     started = time.perf_counter()
     metadata = store.get_job(job_id)
     if metadata is None:
-        logger.warning("Job metadata missing.", extra={"event": "job_metadata_missing", "job_id": job_id})
+        logger.warning(
+            "Job metadata missing.",
+            extra={"event": "job_metadata_missing", "job_id": job_id},
+        )
         if token is not None:
             reset_request_id(token)
         return
@@ -29,7 +32,14 @@ def process_job(job_id: str, store: JobStore, request_id: str | None = None) -> 
     try:
         if metadata.status == "cancelled" or metadata.cancel_requested:
             _mark_cancelled(store, job_id, metadata)
-            logger.info("Job was already cancelled.", extra={"event": "job_cancelled", "job_id": job_id, "status": "cancelled"})
+            logger.info(
+                "Job was already cancelled.",
+                extra={
+                    "event": "job_cancelled",
+                    "job_id": job_id,
+                    "status": "cancelled",
+                },
+            )
             return
 
         if metadata.job_type == "sprite_sheet":
@@ -37,7 +47,14 @@ def process_job(job_id: str, store: JobStore, request_id: str | None = None) -> 
             return
 
         params = JobParameters.model_validate(metadata.params)
-        logger.info("Job processing started.", extra={"event": "job_processing_started", "job_id": job_id, "status": metadata.status})
+        logger.info(
+            "Job processing started.",
+            extra={
+                "event": "job_processing_started",
+                "job_id": job_id,
+                "status": metadata.status,
+            },
+        )
         _set_progress(store, job_id, "preflight", 10.0, "Preflight analysis...")
 
         input_path = ROOT / metadata.input_path
@@ -58,11 +75,26 @@ def process_job(job_id: str, store: JobStore, request_id: str | None = None) -> 
             confidence_threshold=params.confidence_threshold,
             fractional_scale_step=params.fractional_scale_step,
         )
-        result = process_image_file(input_path, settings, progress=_progress_callback(job_id, store), cancel=_cancel_callback(job_id, store))
+        result = process_image_file(
+            input_path,
+            settings,
+            progress=_progress_callback(job_id, store),
+            cancel=_cancel_callback(job_id, store),
+        )
         latest_metadata = store.get_job(job_id)
-        if latest_metadata is not None and (latest_metadata.status == "cancelled" or latest_metadata.cancel_requested):
+        if latest_metadata is not None and (
+            latest_metadata.status == "cancelled" or latest_metadata.cancel_requested
+        ):
             _mark_cancelled(store, job_id, latest_metadata)
-            logger.info("Job cancelled after processing.", extra={"event": "job_cancelled", "job_id": job_id, "status": "cancelled", "stage": "after_processing"})
+            logger.info(
+                "Job cancelled after processing.",
+                extra={
+                    "event": "job_cancelled",
+                    "job_id": job_id,
+                    "status": "cancelled",
+                    "stage": "after_processing",
+                },
+            )
             return
 
         _set_progress(store, job_id, "save_result", 95.0, "Saving result...")
@@ -70,7 +102,15 @@ def process_job(job_id: str, store: JobStore, request_id: str | None = None) -> 
         metadata = store.get_job(job_id) or metadata
         if metadata.status == "cancelled" or metadata.cancel_requested:
             _mark_cancelled(store, job_id, metadata)
-            logger.info("Job cancelled after saving.", extra={"event": "job_cancelled", "job_id": job_id, "status": "cancelled", "stage": "after_saving"})
+            logger.info(
+                "Job cancelled after saving.",
+                extra={
+                    "event": "job_cancelled",
+                    "job_id": job_id,
+                    "status": "cancelled",
+                    "stage": "after_saving",
+                },
+            )
             return
 
         def complete(current: JobMetadata) -> JobMetadata:
@@ -104,9 +144,19 @@ def process_job(job_id: str, store: JobStore, request_id: str | None = None) -> 
             return current
 
         completed_metadata = store.update_job(job_id, complete) or metadata
-        if completed_metadata.status == "cancelled" or completed_metadata.cancel_requested:
+        if (
+            completed_metadata.status == "cancelled"
+            or completed_metadata.cancel_requested
+        ):
             _mark_cancelled(store, job_id, completed_metadata)
-            logger.info("Job cancelled before completion.", extra={"event": "job_cancelled", "job_id": job_id, "status": "cancelled"})
+            logger.info(
+                "Job cancelled before completion.",
+                extra={
+                    "event": "job_cancelled",
+                    "job_id": job_id,
+                    "status": "cancelled",
+                },
+            )
             return
         duration_ms = round((time.perf_counter() - started) * 1000, 2)
         logger.info(
@@ -122,7 +172,9 @@ def process_job(job_id: str, store: JobStore, request_id: str | None = None) -> 
                 "scale_y": completed_metadata.scale_y,
                 "source_size": completed_metadata.source_size,
                 "target_size": completed_metadata.target_size,
-                "resize_method": (completed_metadata.reconstruction or {}).get("resize_method"),
+                "resize_method": (completed_metadata.reconstruction or {}).get(
+                    "resize_method"
+                ),
                 "warnings_count": len(completed_metadata.warnings),
             },
         )
@@ -132,11 +184,21 @@ def process_job(job_id: str, store: JobStore, request_id: str | None = None) -> 
         duration_ms = round((time.perf_counter() - started) * 1000, 2)
         logger.info(
             "Job processing cancelled.",
-            extra={"event": "job_processing_cancelled", "job_id": job_id, "status": "cancelled", "stage": "cancelled", "duration_ms": duration_ms},
+            extra={
+                "event": "job_processing_cancelled",
+                "job_id": job_id,
+                "status": "cancelled",
+                "stage": "cancelled",
+                "duration_ms": duration_ms,
+            },
         )
-    except Exception as exc:  # pragma: no cover - detailed branches are covered through worker tests.
+    except (
+        Exception
+    ) as exc:  # pragma: no cover - detailed branches are covered through worker tests.
         latest_metadata = store.get_job(job_id)
-        if latest_metadata is not None and (latest_metadata.status == "cancelled" or latest_metadata.cancel_requested):
+        if latest_metadata is not None and (
+            latest_metadata.status == "cancelled" or latest_metadata.cancel_requested
+        ):
             _mark_cancelled(store, job_id, latest_metadata)
             return
 
@@ -166,11 +228,17 @@ def output_file_path(metadata: JobMetadata) -> Path | None:
     return ROOT / metadata.output_path
 
 
-def _process_sprite_sheet_job(job_id: str, store: JobStore, metadata: JobMetadata, started: float) -> None:
+def _process_sprite_sheet_job(
+    job_id: str, store: JobStore, metadata: JobMetadata, started: float
+) -> None:
     params = SpriteSheetParameters.model_validate(metadata.params)
     logger.info(
         "Sprite-sheet job processing started.",
-        extra={"event": "sprite_sheet_processing_started", "job_id": job_id, "input_count": len(metadata.input_paths)},
+        extra={
+            "event": "sprite_sheet_processing_started",
+            "job_id": job_id,
+            "input_count": len(metadata.input_paths),
+        },
     )
     _set_progress(store, job_id, "load_inputs", 8.0, "Loading sprite images...")
     output = process_sprite_sheet_job(
@@ -179,9 +247,14 @@ def _process_sprite_sheet_job(job_id: str, store: JobStore, metadata: JobMetadat
         cancel=_cancel_callback(job_id, store),
     )
     latest_metadata = store.get_job(job_id)
-    if latest_metadata is not None and (latest_metadata.status == "cancelled" or latest_metadata.cancel_requested):
+    if latest_metadata is not None and (
+        latest_metadata.status == "cancelled" or latest_metadata.cancel_requested
+    ):
         _mark_cancelled(store, job_id, latest_metadata)
-        logger.info("Sprite-sheet job cancelled after processing.", extra={"event": "sprite_sheet_processing_cancelled", "job_id": job_id})
+        logger.info(
+            "Sprite-sheet job cancelled after processing.",
+            extra={"event": "sprite_sheet_processing_cancelled", "job_id": job_id},
+        )
         return
 
     _set_progress(store, job_id, "save_result", 97.0, "Saving sprite atlas...")
@@ -230,7 +303,10 @@ def _process_sprite_sheet_job(job_id: str, store: JobStore, metadata: JobMetadat
     completed_metadata = store.update_job(job_id, complete) or metadata
     if completed_metadata.status == "cancelled" or completed_metadata.cancel_requested:
         _mark_cancelled(store, job_id, completed_metadata)
-        logger.info("Sprite-sheet job cancelled before completion.", extra={"event": "sprite_sheet_processing_cancelled", "job_id": job_id})
+        logger.info(
+            "Sprite-sheet job cancelled before completion.",
+            extra={"event": "sprite_sheet_processing_cancelled", "job_id": job_id},
+        )
         return
     duration_ms = round((time.perf_counter() - started) * 1000, 2)
     logger.info(
@@ -253,7 +329,9 @@ def _progress_callback(job_id: str, store: JobStore):  # type: ignore[no-untyped
     return progress
 
 
-def _set_progress(store: JobStore, job_id: str, stage: str, percent: float, message: str) -> None:
+def _set_progress(
+    store: JobStore, job_id: str, stage: str, percent: float, message: str
+) -> None:
     def update(metadata: JobMetadata) -> JobMetadata:
         if metadata.status in ("completed", "failed", "cancelled"):
             return metadata
@@ -269,7 +347,9 @@ def _set_progress(store: JobStore, job_id: str, stage: str, percent: float, mess
 def _cancel_callback(job_id: str, store: JobStore):  # type: ignore[no-untyped-def]
     def cancel() -> bool:
         metadata = store.get_job(job_id)
-        return metadata is not None and (metadata.status == "cancelled" or metadata.cancel_requested)
+        return metadata is not None and (
+            metadata.status == "cancelled" or metadata.cancel_requested
+        )
 
     return cancel
 
@@ -289,7 +369,9 @@ def _mark_cancelled(store: JobStore, job_id: str, fallback: JobMetadata) -> JobM
     return store.update_job(job_id, update) or fallback
 
 
-def _record_failure(store: JobStore, job_id: str, fallback: JobMetadata, exc: Exception) -> JobMetadata:
+def _record_failure(
+    store: JobStore, job_id: str, fallback: JobMetadata, exc: Exception
+) -> JobMetadata:
     retryable = not _is_non_retryable_error(exc)
     error_message = str(exc)
 
@@ -314,12 +396,23 @@ def _record_failure(store: JobStore, job_id: str, fallback: JobMetadata, exc: Ex
 
 
 def _is_non_retryable_error(exc: Exception) -> bool:
-    return isinstance(exc, (ValueError, NotImplementedError, ValidationError)) or type(exc).__name__ == "UnidentifiedImageError"
+    return (
+        isinstance(exc, (ValueError, NotImplementedError, ValidationError))
+        or type(exc).__name__ == "UnidentifiedImageError"
+    )
 
 
 def _cancelled_message(metadata: JobMetadata) -> str:
-    return "Sprite-sheet creation cancelled." if metadata.job_type == "sprite_sheet" else "Restoration cancelled."
+    return (
+        "Sprite-sheet creation cancelled."
+        if metadata.job_type == "sprite_sheet"
+        else "Restoration cancelled."
+    )
 
 
 def _failed_message(metadata: JobMetadata) -> str:
-    return "Sprite-sheet creation failed." if metadata.job_type == "sprite_sheet" else "Restoration failed."
+    return (
+        "Sprite-sheet creation failed."
+        if metadata.job_type == "sprite_sheet"
+        else "Restoration failed."
+    )

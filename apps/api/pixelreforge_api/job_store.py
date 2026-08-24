@@ -75,9 +75,13 @@ class JobStore(Protocol):
 
     def get_job(self, job_id: str) -> JobMetadata | None: ...
 
-    def list_jobs(self, *, limit: int, offset: int, owner_id: str | None = None) -> list[JobMetadata]: ...
+    def list_jobs(
+        self, *, limit: int, offset: int, owner_id: str | None = None
+    ) -> list[JobMetadata]: ...
 
-    def update_job(self, job_id: str, update: Callable[[JobMetadata], JobMetadata]) -> JobMetadata | None: ...
+    def update_job(
+        self, job_id: str, update: Callable[[JobMetadata], JobMetadata]
+    ) -> JobMetadata | None: ...
 
     def claim_next_queued_job(self, *, worker_id: str) -> JobMetadata | None: ...
 
@@ -112,10 +116,14 @@ class SQLiteJobStore:
 
     def get_job(self, job_id: str) -> JobMetadata | None:
         with closing(self._connect()) as connection:
-            row = connection.execute("SELECT * FROM jobs WHERE job_id = ?", (job_id,)).fetchone()
+            row = connection.execute(
+                "SELECT * FROM jobs WHERE job_id = ?", (job_id,)
+            ).fetchone()
         return _row_to_metadata(row) if row is not None else None
 
-    def list_jobs(self, *, limit: int, offset: int, owner_id: str | None = None) -> list[JobMetadata]:
+    def list_jobs(
+        self, *, limit: int, offset: int, owner_id: str | None = None
+    ) -> list[JobMetadata]:
         limit = max(1, min(100, limit))
         offset = max(0, offset)
         with closing(self._connect()) as connection:
@@ -131,10 +139,14 @@ class SQLiteJobStore:
                 ).fetchall()
         return [_row_to_metadata(row) for row in rows]
 
-    def update_job(self, job_id: str, update: Callable[[JobMetadata], JobMetadata]) -> JobMetadata | None:
+    def update_job(
+        self, job_id: str, update: Callable[[JobMetadata], JobMetadata]
+    ) -> JobMetadata | None:
         with closing(self._connect()) as connection:
             connection.execute("BEGIN IMMEDIATE")
-            row = connection.execute("SELECT * FROM jobs WHERE job_id = ?", (job_id,)).fetchone()
+            row = connection.execute(
+                "SELECT * FROM jobs WHERE job_id = ?", (job_id,)
+            ).fetchone()
             if row is None:
                 connection.rollback()
                 return None
@@ -186,7 +198,9 @@ class SQLiteJobStore:
                 (worker_id,),
             ).fetchall()
             for row in rows:
-                metadata = _reset_processing_job(_row_to_metadata(row), now, "Worker was interrupted.")
+                metadata = _reset_processing_job(
+                    _row_to_metadata(row), now, "Worker was interrupted."
+                )
                 _replace_metadata(connection, metadata)
                 recovered += 1
             connection.commit()
@@ -198,12 +212,19 @@ class SQLiteJobStore:
         recovered = 0
         with closing(self._connect()) as connection:
             connection.execute("BEGIN IMMEDIATE")
-            rows = connection.execute("SELECT * FROM jobs WHERE status = 'processing'").fetchall()
+            rows = connection.execute(
+                "SELECT * FROM jobs WHERE status = 'processing'"
+            ).fetchall()
             for row in rows:
                 metadata = _row_to_metadata(row)
                 heartbeat = metadata.heartbeat_at or metadata.started_at
                 started = metadata.started_at or metadata.heartbeat_at
-                if heartbeat is not None and heartbeat > threshold and started is not None and started > threshold:
+                if (
+                    heartbeat is not None
+                    and heartbeat > threshold
+                    and started is not None
+                    and started > threshold
+                ):
                     continue
                 metadata = _reset_processing_job(metadata, now, "Processing timed out.")
                 _replace_metadata(connection, metadata)
@@ -233,7 +254,9 @@ class SQLiteJobStore:
     def delete_job(self, job_id: str) -> JobMetadata | None:
         with closing(self._connect()) as connection:
             connection.execute("BEGIN IMMEDIATE")
-            row = connection.execute("SELECT * FROM jobs WHERE job_id = ?", (job_id,)).fetchone()
+            row = connection.execute(
+                "SELECT * FROM jobs WHERE job_id = ?", (job_id,)
+            ).fetchone()
             if row is None:
                 connection.rollback()
                 return None
@@ -289,17 +312,28 @@ class SQLiteJobStore:
                 )
                 """
             )
-            existing_columns = {row["name"] for row in connection.execute("PRAGMA table_info(jobs)").fetchall()}
+            existing_columns = {
+                row["name"]
+                for row in connection.execute("PRAGMA table_info(jobs)").fetchall()
+            }
             for name, definition in (
                 ("job_type", "TEXT NOT NULL DEFAULT 'restore'"),
                 ("input_filenames", "TEXT NOT NULL DEFAULT '[]'"),
                 ("input_paths", "TEXT NOT NULL DEFAULT '[]'"),
             ):
                 if name not in existing_columns:
-                    connection.execute(f"ALTER TABLE jobs ADD COLUMN {name} {definition}")
-            connection.execute("CREATE INDEX IF NOT EXISTS idx_jobs_status_created ON jobs(status, created_at)")
-            connection.execute("CREATE INDEX IF NOT EXISTS idx_jobs_owner_created ON jobs(owner_id, created_at)")
-            connection.execute("CREATE INDEX IF NOT EXISTS idx_jobs_expires_at ON jobs(expires_at)")
+                    connection.execute(
+                        f"ALTER TABLE jobs ADD COLUMN {name} {definition}"
+                    )
+            connection.execute(
+                "CREATE INDEX IF NOT EXISTS idx_jobs_status_created ON jobs(status, created_at)"
+            )
+            connection.execute(
+                "CREATE INDEX IF NOT EXISTS idx_jobs_owner_created ON jobs(owner_id, created_at)"
+            )
+            connection.execute(
+                "CREATE INDEX IF NOT EXISTS idx_jobs_expires_at ON jobs(expires_at)"
+            )
             connection.commit()
 
     def _connect(self) -> sqlite3.Connection:
@@ -312,7 +346,10 @@ class SQLiteJobStore:
 
 
 def create_job_store(settings: ApiSettings) -> JobStore:
-    if settings.database_url.startswith("sqlite:///") or "://" not in settings.database_url:
+    if (
+        settings.database_url.startswith("sqlite:///")
+        or "://" not in settings.database_url
+    ):
         return SQLiteJobStore(settings.database_url)
     raise ValueError(f"Unsupported job database URL: {settings.database_url}")
 
@@ -341,7 +378,9 @@ def _metadata_to_row(metadata: JobMetadata) -> dict[str, object | None]:
     data = metadata.model_dump(mode="json")
     for field in JSON_FIELDS:
         value = data[field]
-        data[field] = json.dumps(value, ensure_ascii=False) if value is not None else None
+        data[field] = (
+            json.dumps(value, ensure_ascii=False) if value is not None else None
+        )
     data["cancel_requested"] = 1 if metadata.cancel_requested else 0
     return {column: data.get(column) for column in COLUMNS}
 
@@ -350,14 +389,34 @@ def _row_to_metadata(row: sqlite3.Row) -> JobMetadata:
     data = dict(row)
     for field in JSON_FIELDS:
         value = data[field]
-        data[field] = json.loads(value) if value else ([] if field in {"warnings", "input_filenames", "input_paths"} else {} if field == "params" else None)
+        data[field] = (
+            json.loads(value)
+            if value
+            else (
+                []
+                if field in {"warnings", "input_filenames", "input_paths"}
+                else {}
+                if field == "params"
+                else None
+            )
+        )
     data["cancel_requested"] = bool(data["cancel_requested"])
     return JobMetadata.model_validate(data)
 
 
-def _reset_processing_job(metadata: JobMetadata, now: datetime, reason: str) -> JobMetadata:
-    cancelled_message = "Sprite-sheet creation cancelled." if metadata.job_type == "sprite_sheet" else "Restoration cancelled."
-    failed_message = "Sprite-sheet creation failed." if metadata.job_type == "sprite_sheet" else "Restoration failed."
+def _reset_processing_job(
+    metadata: JobMetadata, now: datetime, reason: str
+) -> JobMetadata:
+    cancelled_message = (
+        "Sprite-sheet creation cancelled."
+        if metadata.job_type == "sprite_sheet"
+        else "Restoration cancelled."
+    )
+    failed_message = (
+        "Sprite-sheet creation failed."
+        if metadata.job_type == "sprite_sheet"
+        else "Restoration failed."
+    )
     if metadata.cancel_requested or metadata.status == "cancelled":
         metadata.status = "cancelled"
         metadata.stage = "cancelled"

@@ -28,7 +28,9 @@ def restore_ai_pixel_art(
         bucket_size=bucket_size,
         cancel=cancel,
     )
-    cleaned_array, replaced_pixels = _replace_isolated_pixels(np.asarray(clustered), cancel)
+    cleaned_array, replaced_pixels = _replace_isolated_pixels(
+        np.asarray(clustered), cancel
+    )
     mode = "RGBA" if cleaned_array.shape[2] == 4 else "RGB"
     return AiPixelResult(
         image=Image.fromarray(cleaned_array, mode=mode),
@@ -39,7 +41,9 @@ def restore_ai_pixel_art(
     )
 
 
-def _replace_isolated_pixels(image_array: np.ndarray, cancel: CancelCallback | None = None) -> tuple[np.ndarray, int]:
+def _replace_isolated_pixels(
+    image_array: np.ndarray, cancel: CancelCallback | None = None
+) -> tuple[np.ndarray, int]:
     if image_array.shape[0] < 3 or image_array.shape[1] < 3:
         return image_array.copy(), 0
 
@@ -55,7 +59,10 @@ def _replace_isolated_pixels(image_array: np.ndarray, cancel: CancelCallback | N
             colors, counts = np.unique(neighbors, axis=0, return_counts=True)
             dominant_index = int(np.argmax(counts))
             dominant = colors[dominant_index]
-            if counts[dominant_index] >= 5 and _color_distance(center, dominant) >= 24.0:
+            if (
+                counts[dominant_index] >= 5
+                and _color_distance(center, dominant) >= 24.0
+            ):
                 output[y, x] = dominant
                 replaced += 1
 
@@ -63,4 +70,6 @@ def _replace_isolated_pixels(image_array: np.ndarray, cancel: CancelCallback | N
 
 
 def _color_distance(left: np.ndarray, right: np.ndarray) -> float:
-    return float(np.linalg.norm(left[:3].astype(np.float32) - right[:3].astype(np.float32)))
+    return float(
+        np.linalg.norm(left[:3].astype(np.float32) - right[:3].astype(np.float32))
+    )

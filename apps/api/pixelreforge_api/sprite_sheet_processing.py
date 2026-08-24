@@ -3,7 +3,13 @@ from dataclasses import dataclass
 import json
 from pathlib import Path
 
-from pixelreforge_core import ProcessingCancelled, SheetExtractionSettings, SpriteSheetSettings, create_sprite_sheet, repack_sprite_sheet
+from pixelreforge_core import (
+    ProcessingCancelled,
+    SheetExtractionSettings,
+    SpriteSheetSettings,
+    create_sprite_sheet,
+    repack_sprite_sheet,
+)
 from pixelreforge_core.image_io import load_image, save_image
 
 from .models import JobMetadata, SpriteSheetParameters
@@ -36,7 +42,11 @@ def process_sprite_sheet_job(
     for index, path in enumerate(input_paths, start=1):
         if cancel():
             raise ProcessingCancelled("Sprite-sheet processing was cancelled.")
-        progress("load_inputs", min(15.0, 5.0 + index * 10.0 / len(input_paths)), "Loading sprite images...")
+        progress(
+            "load_inputs",
+            min(15.0, 5.0 + index * 10.0 / len(input_paths)),
+            "Loading sprite images...",
+        )
         images.append(load_image(_resolve_runtime_path(path)))
     settings = SpriteSheetSettings(
         packing_mode=params.packing_mode,
@@ -81,7 +91,9 @@ def process_sprite_sheet_job(
             cancel=cancel,
         )
     else:
-        result = create_sprite_sheet(images, input_names, settings, progress=progress, cancel=cancel)
+        result = create_sprite_sheet(
+            images, input_names, settings, progress=progress, cancel=cancel
+        )
 
     if cancel():
         raise ProcessingCancelled("Sprite-sheet processing was cancelled.")
@@ -90,7 +102,9 @@ def process_sprite_sheet_job(
     metadata_path: Path | None = None
     if params.include_metadata:
         metadata_path = metadata_file_path_for_job(metadata.job_id)
-        metadata_path.write_text(json.dumps(result.metadata, ensure_ascii=False, indent=2), encoding="utf-8")
+        metadata_path.write_text(
+            json.dumps(result.metadata, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
     return SpriteSheetProcessingOutput(
         output_path=output_path,
         metadata_path=metadata_path,
