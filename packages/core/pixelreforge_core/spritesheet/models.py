@@ -112,8 +112,8 @@ class SheetExtractionSettings:
         ):
             if value < 0:
                 raise SpriteSheetError(f"{name} must not be negative.")
-        for name, value in (("columns", self.columns), ("rows", self.rows)):
-            if value is not None and value < 1:
+        for name, count in (("columns", self.columns), ("rows", self.rows)):
+            if count is not None and count < 1:
                 raise SpriteSheetError(f"{name} must be at least 1 when supplied.")
         if self.mode == "grid":
             if self.cell_width is None or self.cell_height is None:
